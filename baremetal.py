@@ -50,8 +50,8 @@ class Constant(Expression):
 
 class Register(Expression):
 
-    def __init__(self, clock, bits, initial_value=None, enable=None):
-        self.expression = None
+    def __init__(self, clock, bits, initial_value=None, enable=None, expression=None):
+        self.expression = expression
         self.clock = clock
         clock.registers.append(self)
         self.value = initial_value
