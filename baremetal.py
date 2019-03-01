@@ -116,6 +116,16 @@ class Select(Expression):
         self.select.enumerate(netlist)
         for i in self.args:
             i.enumerate(netlist)
+    def generate(self):
+        return """
+  case (%s)
+  %s      
+  endcase;
+"""%(
+        self.select.name, 
+        "\n".join(["%s:%s_reg <= %s;"%(i, self.name, n.name) for i, n in enumerate(self.args)]) 
+)
+
 
 class Slice(Expression):
     def __init__(self, a, msb, lsb):
@@ -135,6 +145,9 @@ class Slice(Expression):
         netlist.expressions.append(self)
         self.a.enumerate(netlist)
 
+    def generate(self):
+        return "  assign %s = %s[%u:%u];\n"%(self.name, self.a.name, self.msb, self.lsb)
+
 class Resize(Expression):
     def __init__(self, a, bits):
         self.a = a
@@ -149,6 +162,9 @@ class Resize(Expression):
             return
         netlist.expressions.append(self)
         self.a.enumerate(netlist)
+
+    def generate(self):
+        return "  assign %s = %s;\n"%(self.name, self.a.name)
 
 class Binary(Expression):
     def __init__(self, a, b, operation):
