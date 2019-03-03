@@ -1,6 +1,3 @@
-from functools import wraps
-
-
 def truncate(expression, bits):
     if expression is None:
         return None
@@ -71,8 +68,6 @@ class Expression:
         return Unary(self, "-")
     def __invert__(self):
         return Unary(self, "~")
-    def __abs__(self):
-        return Select(self>0, self, -self)
     def __getitem__(self, other):
         try:
             return Index(self, int(other))
@@ -211,7 +206,7 @@ def blackbox(inputs, outputs, template, mapping):
     names = {}
     for port in mapping:
         names[port] = mapping[port].name
-    template.format(name)
+    code = template.format(**names)
     blackbox = _BlackBox(inputs, code)
     output_expressions = [_BlackBoxOut(blackbox, idx, i) for idx, i in enumerate(outputs)]
     return output_expressions
@@ -229,7 +224,9 @@ class _BlackBox:
 
     def generate(self, idx):
         if idx:
-            return self.template.format(self.names)
+            return ""
+        else:
+            return self.code
 
 class _BlackBoxOut(Expression):
     def __init__(self, blackbox, idx, output):
@@ -240,16 +237,16 @@ class _BlackBoxOut(Expression):
         self.name     = get_sn()
 
     def get(self):
-        self.output.get()
+        return self.output.get()
 
     def walk(self, netlist):
         if id(self) in [id(i) for i in netlist.expressions]:
             return
-        netlist.expressions.extend(self)
+        netlist.expressions.append(self)
         self.blackbox.walk(netlist, self.idx)
 
     def generate(self):
-        self.blackbox.generate(netlist, self.idx)
+        return "  assign %s = %s;\n"%(self.name, self.output.name)+self.blackbox.generate(self.idx)
 
 def Index(a, b):
     return Slice(a, b, b)
@@ -398,7 +395,7 @@ class Output:
         self.bits = self.expression.bits
 
     def get(self):
-        return truncate(self.expression, self.bits)
+        return truncate(self.expression.get(), self.bits)
 
     def walk(self, netlist):
         self.expression.walk(netlist)
@@ -435,7 +432,6 @@ class Netlist:
 
     def generate(self):
         self.walk()
-        print self.expressions
         return """
 module %s(%s);
 %s%s%s
