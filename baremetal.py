@@ -1,7 +1,9 @@
-class Expression:
-    pass
+from functools import wraps
+
 
 def truncate(expression, bits):
+    if expression is None:
+        return None
     return expression & ((1<<bits) - 1)
 
 sn = 0
@@ -10,6 +12,72 @@ def get_sn():
     x = sn
     sn += 1
     return "exp_" + str(sn)
+
+def number_of_bits_needed(x):
+    if x > 0:
+        n = 1
+        while 1:
+            max_number = 2**n-1
+            if max_number >= x:
+                return n
+            n+=1
+    elif x < 0:
+        x = -x
+        n = 1
+        while 1:
+            max_number = 2**(n-1)
+            if max_number >= x:
+                return n
+            n+=1
+    else:
+        return 1
+
+def const(i):
+    if isinstance(i, Expression):
+        return i
+    bits = number_of_bits_needed(i)
+    return Constant(int(i), bits)
+
+class Expression:
+    def __add__(self, other):
+        return Binary(self, other, "+")
+    def __sub__(self, other):
+        return Binary(self, other, "-")
+    def __mul__(self, other):
+        return Binary(self, other, "*")
+    def __gt__(self, other):
+        return Binary(self, other, ">")
+    def __ge__(self, other):
+        return Binary(self, other, ">=")
+    def __lt__(self, other):
+        return Binary(self, other, "<")
+    def __le__(self, other):
+        return Binary(self, other, "<=")
+    def __eq__(self, other):
+        return Binary(self, other, "==")
+    def __ne__(self, other):
+        return Binary(self, other, "!=")
+    def __lshift__(self, other):
+        return Binary(self, other, "<<")
+    def __rshift__(self, other):
+        return Binary(self, other, ">>")
+    def __and__(self, other):
+        return Binary(self, other, "&")
+    def __or__(self, other):
+        return Binary(self, other, "|")
+    def __xor__(self, other):
+        return Binary(self, other, "^")
+    def __neg__(self):
+        return Unary(self, "-")
+    def __invert__(self):
+        return Unary(self, "~")
+    def __abs__(self):
+        return Select(self>0, self, -self)
+    def __getitem__(self, other):
+        try:
+            return Index(self, int(other))
+        except TypeError:
+            return Slice(self, other.start, other.stop)
 
 class Input(Expression):
     def __init__(self, name, bits):
@@ -23,8 +91,8 @@ class Input(Expression):
     def get(self):
         return truncate(self.value, self.bits)
 
-    def enumerate(self, netlist):
-        if self in netlist.expressions:
+    def walk(self, netlist):
+        if id(self) in [id(i) for i in netlist.expressions]:
             return
         netlist.expressions.append(self)
 
@@ -40,8 +108,8 @@ class Constant(Expression):
     def get(self):
         return truncate(self.value, self.bits)
 
-    def enumerate(self, netlist):
-        if self in netlist.expressions:
+    def walk(self, netlist):
+        if id(self) in [id(i) for i in netlist.expressions]:
             return
         netlist.expressions.append(self)
 
@@ -50,14 +118,14 @@ class Constant(Expression):
 
 class Register(Expression):
 
-    def __init__(self, clock, bits, initial_value=None, enable=None, expression=None):
-        self.expression = expression
+    def __init__(self, clock, bits, initial_value=None, enable=1, expression=None):
+        self.expression = None if expression is None else const(expression)
         self.clock = clock
         clock.registers.append(self)
         self.value = initial_value
         self.initial_value = initial_value
         self.bits = bits
-        self.enable = enable
+        self.enable = const(enable)
         self.name = get_sn()
 
     def initialise(self):
@@ -67,7 +135,7 @@ class Register(Expression):
         self.expression = expression
 
     def evaluate(self):
-        if self.enable is None or self.enable.get():
+        if self.enable.get():
             self.nextvalue = self.expression.get()
         else:
             self.nextvalue = self.value
@@ -78,29 +146,30 @@ class Register(Expression):
     def get(self):
         return truncate(self.value, self.bits)
 
-    def enumerate(self, netlist):
-        if self in netlist.expressions:
+    def walk(self, netlist):
+        if id(self) in [id(i) for i in netlist.expressions]:
             return
         netlist.expressions.append(self)
-        self.expression.enumerate(netlist)
-        if self.enable is not None:
-            self.enable.enumerate(self)
+        self.expression.walk(netlist)
+        self.enable.walk(netlist)
 
     def generate(self):
         return """
-  register [%s:0] %s_reg;
+  reg [%s:0] %s_reg;
   always@(posedge %s) begin
-    %s_reg <= %s;
+    if %s begin
+      %s_reg <= %s;
+    end
   end
   assign %s = %s_reg;
-"""%(self.bits-1, self.name, self.clock.name, self.name, self.expression.name, self.name, self.name)
+"""%(self.bits-1, self.name, self.clock.name, self.enable.name, self.name, self.expression.name, self.name, self.name)
 
 class Select(Expression):
-    def __init__(self, select, default=None, *args):
-        self.select=select
-        self.args=args
-        self.default=None
-        self.bits=max([i.bits for i in args])
+    def __init__(self, select, *args, **kwargs):
+        self.select=const(select)
+        self.args=[const(i) for i in args]
+        self.default=const(kwargs.get("default", 0))
+        self.bits=max([i.bits for i in self.args])
         self.name = get_sn()
 
     def get(self):
@@ -109,27 +178,85 @@ class Select(Expression):
             return truncate(self.default.get(), self.bits)
         return truncate(self.args[idx].get(), self.bits)
 
-    def enumerate(self, netlist):
-        if self in netlist.expressions:
+    def walk(self, netlist):
+        if id(self) in [id(i) for i in netlist.expressions]:
             return
         netlist.expressions.append(self)
-        self.select.enumerate(netlist)
+        self.select.walk(netlist)
+        self.default.walk(netlist)
         for i in self.args:
-            i.enumerate(netlist)
+            i.walk(netlist)
     def generate(self):
+        select_string = "\n".join(["      %s:%s_reg <= %s;"%(i, self.name, n.name) for i, n in enumerate(self.args)])
+        default_string = "\n      default:%s_reg <= %s;"%(self.name, self.default.name)
+    
         return """
-  case (%s)
-  %s      
-  endcase;
+  reg [%s:0] %s_reg;
+  always@(*)
+    case (%s)
+%s
+    endcase;
+  end
+  assign %s = %s_reg;
 """%(
+        self.bits-1,
+        self.name,
         self.select.name, 
-        "\n".join(["%s:%s_reg <= %s;"%(i, self.name, n.name) for i, n in enumerate(self.args)]) 
+        select_string+default_string,
+        self.name,
+        self.name
 )
 
+def blackbox(inputs, outputs, template, mapping):
+    names = {}
+    for port in mapping:
+        names[port] = mapping[port].name
+    template.format(name)
+    blackbox = _BlackBox(inputs, code)
+    output_expressions = [_BlackBoxOut(blackbox, idx, i) for idx, i in enumerate(outputs)]
+    return output_expressions
+
+class _BlackBox:
+    def __init__(self, inputs, code):
+        self.inputs = [const(i) for i in inputs]
+        self.code = code
+
+    def walk(self, netlist, idx):
+        if idx:
+            return
+        for i in self.inputs:
+            i.walk(netlist)
+
+    def generate(self, idx):
+        if idx:
+            return self.template.format(self.names)
+
+class _BlackBoxOut(Expression):
+    def __init__(self, blackbox, idx, output):
+        self.blackbox = blackbox
+        self.idx      = idx
+        self.output   = output
+        self.bits     = output.bits
+        self.name     = get_sn()
+
+    def get(self):
+        self.output.get()
+
+    def walk(self, netlist):
+        if id(self) in [id(i) for i in netlist.expressions]:
+            return
+        netlist.expressions.extend(self)
+        self.blackbox.walk(netlist, self.idx)
+
+    def generate(self):
+        self.blackbox.generate(netlist, self.idx)
+
+def Index(a, b):
+    return Slice(a, b, b)
 
 class Slice(Expression):
     def __init__(self, a, msb, lsb):
-        self.a = a
+        self.a = const(a)
         assert msb < a.bits
         self.msb = int(msb)
         self.lsb = int(lsb)
@@ -139,37 +266,67 @@ class Slice(Expression):
     def get(self):
         return truncate(self.a.get() >> self.lsb, self.bits)
 
-    def enumerate(self, netlist):
-        if self in netlist.expressions:
+    def walk(self, netlist):
+        if id(self) in [id(i) for i in netlist.expressions]:
             return
         netlist.expressions.append(self)
-        self.a.enumerate(netlist)
+        self.a.walk(netlist)
 
     def generate(self):
-        return "  assign %s = %s[%u:%u];\n"%(self.name, self.a.name, self.msb, self.lsb)
+        return "  assign %s = %s[%u:%u];\n"%(
+            self.name, self.a.name, self.msb, self.lsb)
 
 class Resize(Expression):
     def __init__(self, a, bits):
-        self.a = a
+        self.a = const(a)
         self.bits = int(bits)
         self.name = get_sn()
 
     def get(self):
         return truncate(self.a.get(), self.bits)
 
-    def enumerate(self, netlist):
-        if self in netlist.expressions:
+    def walk(self, netlist):
+        if id(self) in [id(i) for i in netlist.expressions]:
             return
         netlist.expressions.append(self)
-        self.a.enumerate(netlist)
+        self.a.walk(netlist)
 
     def generate(self):
         return "  assign %s = %s;\n"%(self.name, self.a.name)
 
+class Unary(Expression):
+    def __init__(self, a, operation):
+        self.a = const(a)
+        func_lookup = {
+            "-":lambda a, b : a - b,
+            "~":lambda a, b : ~a,
+        }
+
+        vstring_lookup = {
+            "-": "  assign %s = -%s;\n",
+            "~": "  assign %s = ~%s;\n",
+        }
+        self.bits = self.a.bits
+        self.func = func_lookup[operation]
+        self.vstring = vstring_lookup[operation]
+        self.name = get_sn()
+
+    def get(self):
+        return truncate(self.func(self.a.get(), self.b.get()), self.bits)
+
+    def generate(self):
+        return self.vstring%(self.name, self.a.name)
+
+    def walk(self, netlist):
+        if id(self) in [id(i) for i in netlist.expressions]:
+            return
+        netlist.expressions.append(self)
+        self.a.walk(netlist)
+
 class Binary(Expression):
     def __init__(self, a, b, operation):
-        self.a = a
-        self.b = b
+        self.a = const(a)
+        self.b = const(b)
         func_lookup = {
             "*":lambda a, b : a * b,
             "+":lambda a, b : a + b,
@@ -216,7 +373,7 @@ class Binary(Expression):
             "<=":"  assign %s = %s <= %s;\n",
             ">=":"  assign %s = %s >= %s;\n",
         }
-        self.bits = bits_lookup[operation](a.bits, b.bits)
+        self.bits = bits_lookup[operation](self.a.bits, self.b.bits)
         self.func = func_lookup[operation]
         self.vstring = vstring_lookup[operation]
         self.name = get_sn()
@@ -227,26 +384,24 @@ class Binary(Expression):
     def generate(self):
         return self.vstring%(self.name, self.a.name, self.b.name)
 
-    def enumerate(self, netlist):
-        if self in netlist.expressions:
+    def walk(self, netlist):
+        if id(self) in [id(i) for i in netlist.expressions]:
             return
         netlist.expressions.append(self)
-        self.a.enumerate(netlist)
-        self.b.enumerate(netlist)
+        self.a.walk(netlist)
+        self.b.walk(netlist)
 
 class Output:
-    def __init__(self, name, bits):
-        self.bits = bits
+    def __init__(self, name, expression):
         self.name = name
-
-    def set_expression(self, expression):
-        self.expression = expression
+        self.expression = const(expression)
+        self.bits = self.expression.bits
 
     def get(self):
         return truncate(self.expression, self.bits)
 
-    def enumerate(self, netlist):
-        self.expression.enumerate(netlist)
+    def walk(self, netlist):
+        self.expression.walk(netlist)
 
     def generate(self):
         return "  assign %s = %s;\n"%(self.name, self.expression.name)
@@ -266,53 +421,31 @@ class Clock:
         for i in self.registers:
             i.update()
 
-    def enumerate(self, netlist):
-        for i in self.registers:
-            i.enumerate(netlist)
-
 class Netlist:
-    def __init__(self, name, inputs, outputs, clocks):
+    def __init__(self, name, clocks, inputs, outputs):
         self.inputs = inputs
         self.outputs = outputs
         self.clocks = clocks
         self.expressions = []
         self.name = name
 
-    def enumerate(self):
-        for i in self.outputs + self.clocks:
-            i.enumerate(self)
+    def walk(self):
+        for i in self.outputs:
+            i.walk(self)
 
     def generate(self):
+        self.walk()
+        print self.expressions
         return """
 module %s(%s);
 %s%s%s
 %s
 endmodule"""%(
     self.name,
-    ", ".join([i.name for i in self.inputs+self.outputs+self.clocks]),
+    ", ".join([i.name for i in self.clocks+self.inputs+self.outputs]),
     "".join(["  input [%s:0] %s;\n"%(i.bits-1, i.name) for i in self.inputs]),
     "".join(["  output [%s:0] %s;\n"%(i.bits-1, i.name) for i in self.outputs]),
-    "".join(["  wire [%s:0] %s;\n"%(i.bits-1, i.name) for i in self.expressions if i not in self.inputs]),
+    "".join(["  wire [%s:0] %s;\n"%(i.bits-1, i.name) for i in self.expressions 
+        if id(i) not in [id(x) for x in self.inputs]]),
     "".join([i.generate() for i in self.expressions + self.outputs]),
-
 )
-        
-
-clk = Clock("clk")
-count = Register(clk, 3, 1)
-count.expression = Binary(count, Constant(1, 3), "+")
-count_out = Output("blah", 10)
-count_out.expression = count
-inp = Input("blahblah", 10)
-outp = Output("blahblahblah", 10)
-outp.expression = inp
-
-netlist = Netlist("mymodule", [inp], [count_out, outp], [clk])
-netlist.enumerate()
-print netlist.generate()
-
-clk.initialise()
-print count.get()
-for i in range(10):
-    clk.tick()
-    print count.get()
