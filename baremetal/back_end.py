@@ -97,7 +97,7 @@ class Select:
         self.select=select
         self.args=args
         self.default=kwargs.get("default", 0)
-        self.bits=max([i.bits for i in self.args])
+        self.bits=max([i.bits for i in self.args+(self.default,)])
         self.name = get_sn()
 
     def get(self):
@@ -229,8 +229,8 @@ class Unary:
     def __init__(self, a, operation):
         self.a = a
         func_lookup = {
-            "-":lambda a, b : a - b,
-            "~":lambda a, b : ~a,
+            "-":lambda a : -a,
+            "~":lambda a : ~a,
         }
 
         vstring_lookup = {
@@ -243,7 +243,7 @@ class Unary:
         self.name = get_sn()
 
     def get(self):
-        return truncate(self.func(self.a.get(), self.b.get()), self.bits)
+        return truncate(self.func(self.a.get()), self.bits)
 
     def generate(self):
         return self.vstring%(self.name, self.a.name)
@@ -264,6 +264,7 @@ class Binary:
             "-":lambda a, b : a - b,
             "|":lambda a, b : a | b,
             "&":lambda a, b : a & b,
+            "^":lambda a, b : a ^ b,
             ">>":lambda a, b : a >> b,
             "<<":lambda a, b : a << b,
             "==":lambda a, b : a == b,
@@ -280,6 +281,7 @@ class Binary:
             "-":lambda a, b : max([a, b]),
             "|":lambda a, b : max([a, b]),
             "&":lambda a, b : max([a, b]),
+            "^":lambda a, b : max([a, b]),
             "<<":lambda a, b : max([a, b]),
             ">>":lambda a, b : max([a, b]),
             "==":lambda a, b : 1,
@@ -295,6 +297,7 @@ class Binary:
             "-": "  assign %s = %s - %s;\n",
             "|": "  assign %s = %s | %s;\n",
             "&": "  assign %s = %s & %s;\n",
+            "^": "  assign %s = %s ^ %s;\n",
             "<<":"  assign %s = %s << %s;\n",
             ">>":"  assign %s = %s >> %s;\n",
             "==":"  assign %s = %s == %s;\n",
