@@ -10,71 +10,7 @@ def get_sn():
     sn += 1
     return "exp_" + str(sn)
 
-def number_of_bits_needed(x):
-    if x > 0:
-        n = 1
-        while 1:
-            max_number = 2**n-1
-            if max_number >= x:
-                return n
-            n+=1
-    elif x < 0:
-        x = -x
-        n = 1
-        while 1:
-            max_number = 2**(n-1)
-            if max_number >= x:
-                return n
-            n+=1
-    else:
-        return 1
-
-def const(i):
-    if isinstance(i, Expression):
-        return i
-    bits = number_of_bits_needed(i)
-    return Constant(int(i), bits)
-
-class Expression:
-    def __add__(self, other):
-        return Binary(self, other, "+")
-    def __sub__(self, other):
-        return Binary(self, other, "-")
-    def __mul__(self, other):
-        return Binary(self, other, "*")
-    def __gt__(self, other):
-        return Binary(self, other, ">")
-    def __ge__(self, other):
-        return Binary(self, other, ">=")
-    def __lt__(self, other):
-        return Binary(self, other, "<")
-    def __le__(self, other):
-        return Binary(self, other, "<=")
-    def __eq__(self, other):
-        return Binary(self, other, "==")
-    def __ne__(self, other):
-        return Binary(self, other, "!=")
-    def __lshift__(self, other):
-        return Binary(self, other, "<<")
-    def __rshift__(self, other):
-        return Binary(self, other, ">>")
-    def __and__(self, other):
-        return Binary(self, other, "&")
-    def __or__(self, other):
-        return Binary(self, other, "|")
-    def __xor__(self, other):
-        return Binary(self, other, "^")
-    def __neg__(self):
-        return Unary(self, "-")
-    def __invert__(self):
-        return Unary(self, "~")
-    def __getitem__(self, other):
-        try:
-            return Index(self, int(other))
-        except TypeError:
-            return Slice(self, other.start, other.stop)
-
-class Input(Expression):
+class Input:
     def __init__(self, name, bits):
         self.value = None
         self.name = name
@@ -94,7 +30,7 @@ class Input(Expression):
     def generate(self):
         return ""
 
-class Constant(Expression):
+class Constant:
     def __init__(self, value, bits):
         self.value = value
         self.bits = bits
@@ -111,27 +47,24 @@ class Constant(Expression):
     def generate(self):
         return "  assign %s = %s;\n"%(self.name, self.value)
 
-class Register(Expression):
+class Register:
 
-    def __init__(self, clock, bits, initial_value=None, enable=1, expression=None):
-        self.expression = None if expression is None else const(expression)
+    def __init__(self, clock, bits, init=None, en=1, d=None):
+        self.d = d
         self.clock = clock
         clock.registers.append(self)
-        self.value = initial_value
-        self.initial_value = initial_value
+        self.value = init
+        self.init = init
         self.bits = bits
-        self.enable = const(enable)
+        self.en = en
         self.name = get_sn()
 
     def initialise(self):
-        self.value = self.initial_value
-
-    def set_expression(self, expression):
-        self.expression = expression
+        self.value = self.init
 
     def evaluate(self):
-        if self.enable.get():
-            self.nextvalue = self.expression.get()
+        if self.en.get():
+            self.nextvalue = self.d.get()
         else:
             self.nextvalue = self.value
 
@@ -145,8 +78,8 @@ class Register(Expression):
         if id(self) in [id(i) for i in netlist.expressions]:
             return
         netlist.expressions.append(self)
-        self.expression.walk(netlist)
-        self.enable.walk(netlist)
+        self.d.walk(netlist)
+        self.en.walk(netlist)
 
     def generate(self):
         return """
@@ -157,13 +90,13 @@ class Register(Expression):
     end
   end
   assign %s = %s_reg;
-"""%(self.bits-1, self.name, self.clock.name, self.enable.name, self.name, self.expression.name, self.name, self.name)
+"""%(self.bits-1, self.name, self.clock.name, self.en.name, self.name, self.d.name, self.name, self.name)
 
-class Select(Expression):
+class Select:
     def __init__(self, select, *args, **kwargs):
-        self.select=const(select)
-        self.args=[const(i) for i in args]
-        self.default=const(kwargs.get("default", 0))
+        self.select=select
+        self.args=args
+        self.default=kwargs.get("default", 0)
         self.bits=max([i.bits for i in self.args])
         self.name = get_sn()
 
@@ -181,6 +114,7 @@ class Select(Expression):
         self.default.walk(netlist)
         for i in self.args:
             i.walk(netlist)
+
     def generate(self):
         select_string = "\n".join(["      %s:%s_reg <= %s;"%(i, self.name, n.name) for i, n in enumerate(self.args)])
         default_string = "\n      default:%s_reg <= %s;"%(self.name, self.default.name)
@@ -213,7 +147,7 @@ def blackbox(inputs, outputs, template, mapping):
 
 class _BlackBox:
     def __init__(self, inputs, code):
-        self.inputs = [const(i) for i in inputs]
+        self.inputs = inputs
         self.code = code
 
     def walk(self, netlist, idx):
@@ -228,7 +162,7 @@ class _BlackBox:
         else:
             return self.code
 
-class _BlackBoxOut(Expression):
+class _BlackBoxOut:
     def __init__(self, blackbox, idx, output):
         self.blackbox = blackbox
         self.idx      = idx
@@ -251,9 +185,9 @@ class _BlackBoxOut(Expression):
 def Index(a, b):
     return Slice(a, b, b)
 
-class Slice(Expression):
+class Slice:
     def __init__(self, a, msb, lsb):
-        self.a = const(a)
+        self.a = a
         assert msb < a.bits
         self.msb = int(msb)
         self.lsb = int(lsb)
@@ -273,9 +207,9 @@ class Slice(Expression):
         return "  assign %s = %s[%u:%u];\n"%(
             self.name, self.a.name, self.msb, self.lsb)
 
-class Resize(Expression):
+class Resize:
     def __init__(self, a, bits):
-        self.a = const(a)
+        self.a = a
         self.bits = int(bits)
         self.name = get_sn()
 
@@ -291,9 +225,9 @@ class Resize(Expression):
     def generate(self):
         return "  assign %s = %s;\n"%(self.name, self.a.name)
 
-class Unary(Expression):
+class Unary:
     def __init__(self, a, operation):
-        self.a = const(a)
+        self.a = a
         func_lookup = {
             "-":lambda a, b : a - b,
             "~":lambda a, b : ~a,
@@ -320,10 +254,10 @@ class Unary(Expression):
         netlist.expressions.append(self)
         self.a.walk(netlist)
 
-class Binary(Expression):
+class Binary:
     def __init__(self, a, b, operation):
-        self.a = const(a)
-        self.b = const(b)
+        self.a = a
+        self.b = b
         func_lookup = {
             "*":lambda a, b : a * b,
             "+":lambda a, b : a + b,
@@ -391,7 +325,7 @@ class Binary(Expression):
 class Output:
     def __init__(self, name, expression):
         self.name = name
-        self.expression = const(expression)
+        self.expression = expression
         self.bits = self.expression.bits
 
     def get(self):
@@ -420,8 +354,8 @@ class Clock:
 
 class Netlist:
     def __init__(self, name, clocks, inputs, outputs):
-        self.inputs = inputs
-        self.outputs = outputs
+        self.inputs = [i.vector for i in inputs]
+        self.outputs = [i.vector for i in outputs]
         self.clocks = clocks
         self.expressions = []
         self.name = name
