@@ -47,6 +47,25 @@ class Constant:
     def generate(self):
         return "  assign %s = %s;\n"%(self.name, self.value)
 
+class Wire:
+    def __init__(self, bits):
+        self.d = None
+        self.bits = bits
+
+    def get(self):
+        return truncate(self.drive.get(), self.bits)
+
+    def walk(self, netlist):
+        if id(self) in [id(i) for i in netlist.expressions]:
+            return
+        self.drive.walk(netlist)
+
+    def drive(self, expression):
+        self.d = expression
+
+    def generate(self):
+        return "  assign %s = %s"%(self.name, self.d.name)
+
 class Register:
 
     def __init__(self, clock, bits, init=None, en=1, d=None):

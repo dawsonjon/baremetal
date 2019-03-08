@@ -13,22 +13,23 @@ def const(value):
     if isinstance(value, Expression):
         return value
     bits = number_of_bits_needed(value)
-    subtype = Unsigned(bits)
+    subtype = Enum(bits)
     return Constant(subtype, value)
 
-class Unsigned:
+class Enum:
 
-    def __init__(self, bits):
-        self.bits = bits
+    def __init__(self, *kwargs):
+        self.lookup = kwargs
+        self.bits = number_of_bits_needed(len(args))
 
     def to_vector(self, value):
-        return int(round(float(value)))
+        return int(self.lookup[value])
 
     def from_vector(self, value):
         return value
 
     def constant(self, value):
-        return Constant(self, value)
+        return Constant(self, self.lookup[value])
 
     def input(self, name):
         return Input(self, name)
@@ -42,68 +43,27 @@ class Unsigned:
     def register(self, clk, en=1, init=None, d=None):
         return Register(self, clk, en, init, d)
 
-    def wire(self):
-        return Register(self)
-
-def Boolean():
-    return Unsigned(1)
-
 def binary(a, b, operator):
     b = const(b)
     binary = back_end.Binary(a.vector, b.vector, operator)
     subtype = Unsigned(binary.bits)
-    return Expression(subtype, binary, "("+repr(a)+operator+repr(b)+")")
-
-def unary(a, operator):
-    unary = back_end.Unary(a.vector, operator)
-    subtype = Unsigned(unary.bits)
-    return Expression(subtype, unary, "("+operator+repr(a)+")")
+    return Expression(subtype, binary)
 
 class Expression:
-    def __init__(self, subtype, vector, string=""):
+    def __init__(self, subtype, vector):
         self.subtype = subtype
         self.vector = vector
-        self.string = string
 
     #binary operators
-    def __add__(self, other):    return binary(self, other, "+")
-    def __sub__(self, other):    return binary(self, other, "-")
-    def __mul__(self, other):    return binary(self, other, "*")
-    def __gt__(self, other):     return binary(self, other, ">")
-    def __ge__(self, other):     return binary(self, other, ">=")
-    def __lt__(self, other):     return binary(self, other, "<")
-    def __le__(self, other):     return binary(self, other, "<=")
     def __eq__(self, other):     return binary(self, other, "==")
     def __ne__(self, other):     return binary(self, other, "!=")
-    def __lshift__(self, other): return binary(self, other, "<<")
-    def __rshift__(self, other): return binary(self, other, ">>")
-    def __and__(self, other):    return binary(self, other, "&")
-    def __or__(self, other):     return binary(self, other, "|")
-    def __xor__(self, other):    return binary(self, other, "^")
-    def __neg__(self):           return unary(self, "-")
-    def __invert__(self):        return unary(self, "~")
-    def __abs__(self):           return self
-    def __getitem__(self, other):
-        try:
-            vector=back_end.Index(self.vector, int(other))
-            subtype=Unsigned(vector.bits)
-        except TypeError:
-            vector=back_end.Slice(self.vector, other.start, other.stop)
-            subtype=Unsigned(vector.bits)
-        return Expression(subtype, vector)
     def get(self):
         return self.subtype.from_vector(self.vector.get())
-
-    def __repr__(self):
-        return self.string
 
 class Constant(Expression):
     def __init__(self, subtype, value):
         self.subtype = subtype
         self.vector = back_end.Constant(subtype.to_vector(value), subtype.bits)
-
-    def __repr__(self):
-        return str(self.vector.value)
 
 class Input(Expression):
     def __init__(self, subtype, name):
@@ -112,9 +72,6 @@ class Input(Expression):
 
     def set(self, value):
         self.vector.set(self.subtype.to_vector(value))
-
-    def __repr__(self):
-        return "input(%s)"%self.vector.name
 
 class Output(Expression):
     def __init__(self, subtype, name, expression):
@@ -130,10 +87,7 @@ class Select(Expression):
         args = [const(i).vector for i in args]
         default = const(kwargs.get("default", 0)).vector
         self.vector = back_end.Select(select, *args, default=default)
-        self.subtype = Unsigned(self.vector.bits)
-
-    def __repr__(self):
-        return "select(%s)"%self.select
+        self.subtype = Enum(self.vector.bits)
 
 class Register(Expression):
     def __init__(self, subtype, clk, en, init, d):
@@ -145,17 +99,3 @@ class Register(Expression):
 
     def d(self, expression):
         self.vector.d = expression.vector
-
-    def __repr__(self):
-        return "register"
-
-class Wire(Expression):
-    def __init__(self, subtype):
-        self.subtype = subtype
-        self.vector = back_end.Wire(clock=clk, bits=subtype.bits)
-
-    def drive(self, expression):
-        self.vector.drive(expression.vector)
-
-    def __repr__(self):
-        return "wire"
