@@ -281,7 +281,7 @@ class Concatenate:
         self.name = get_sn()
 
     def get(self):
-        return truncate((self.a.get()<<self.b.bits) | self.b.get()), self.bits)
+        return truncate((self.a.get()<<self.b.bits) | self.b.get(), self.bits)
 
     def generate(self):
         return "  assign %s = {%s, %s};"%(self.name, self.a.name, self.b.name)
@@ -320,10 +320,10 @@ class Binary:
             ">":lambda a, b : a > b,
             "<=":lambda a, b : a <= b,
             ">=":lambda a, b : a >= b,
-            "s<":lambda a, b : sign(x, a.bits) < sign(b, b.bits)
-            "s>":lambda a, b : sign(x, a.bits) > sign(b, b.bits)
-            "s<=":lambda a, b : sign(x, a.bits) <= sign(b, b.bits)
-            "s>=":lambda a, b : sign(x, a.bits) >= sign(b, b.bits)
+            "s<":lambda a, b : sign(x, a.bits) < sign(b, b.bits),
+            "s>":lambda a, b : sign(x, a.bits) > sign(b, b.bits),
+            "s<=":lambda a, b : sign(x, a.bits) <= sign(b, b.bits),
+            "s>=":lambda a, b : sign(x, a.bits) >= sign(b, b.bits),
         }
 
         bits_lookup = {
