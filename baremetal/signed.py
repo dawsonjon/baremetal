@@ -70,7 +70,16 @@ class Expression:
         self.subtype = subtype
         self.vector = vector
 
-    #binary operators
+    def cat(self, other):
+        b = const(b)
+        binary = back_end.Concatenate(a.vector, b.vector)
+        subtype = Unsigned(binary.bits)
+        return Expression(subtype, binary, "%s.cat(%)"%(repr(a), repr(b)))
+
+    def resize(self, bits):
+        binary = back_end.Resize(a.vector, bits)
+        subtype = Unsigned(binary.bits)
+        return Expression(subtype, binary, "%s.resize(%)"%(repr(a), str(bits)))
     def __add__(self, other):    return binary(self, other, "+")
     def __sub__(self, other):    return binary(self, other, "-")
     def __mul__(self, other):    return binary(self, other, "*")

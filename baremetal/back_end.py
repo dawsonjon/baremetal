@@ -273,6 +273,33 @@ class Unary:
         netlist.expressions.append(self)
         self.a.walk(netlist)
 
+class Concatenate:
+    def __init__(self, a, b, operation):
+        self.a = a
+        self.b = b
+        self.bits = self.a.bits + self.b.bits
+        self.name = get_sn()
+
+    def get(self):
+        return truncate((self.a.get()<<self.b.bits) | self.b.get()), self.bits)
+
+    def generate(self):
+        return "  assign %s = {%s, %s};"%(self.name, self.a.name, self.b.name)
+
+    def walk(self, netlist):
+        if id(self) in [id(i) for i in netlist.expressions]:
+            return
+        netlist.expressions.append(self)
+        self.a.walk(netlist)
+        self.b.walk(netlist)
+
+def sign(x, bits):
+    negative = value & (1<<(self.bits-1))
+    mask = ~((1 << self.bits)-1)
+    if negative:
+        return mask | value
+
+
 class Binary:
     def __init__(self, a, b, operation):
         self.a = a
@@ -285,6 +312,7 @@ class Binary:
             "&":lambda a, b : a & b,
             "^":lambda a, b : a ^ b,
             ">>":lambda a, b : a >> b,
+            "s>>":lambda x, y : sign(x, a.bits) >> y,
             "<<":lambda a, b : a << b,
             "==":lambda a, b : a == b,
             "!=":lambda a, b : a != b,
@@ -292,6 +320,10 @@ class Binary:
             ">":lambda a, b : a > b,
             "<=":lambda a, b : a <= b,
             ">=":lambda a, b : a >= b,
+            "s<":lambda a, b : sign(x, a.bits) < sign(b, b.bits)
+            "s>":lambda a, b : sign(x, a.bits) > sign(b, b.bits)
+            "s<=":lambda a, b : sign(x, a.bits) <= sign(b, b.bits)
+            "s>=":lambda a, b : sign(x, a.bits) >= sign(b, b.bits)
         }
 
         bits_lookup = {
@@ -303,12 +335,17 @@ class Binary:
             "^":lambda a, b : max([a, b]),
             "<<":lambda a, b : max([a, b]),
             ">>":lambda a, b : max([a, b]),
+            "s>>":lambda a, b : max([a, b]),
             "==":lambda a, b : 1,
             "!=":lambda a, b : 1,
             "<":lambda a, b : 1,
             ">":lambda a, b : 1,
             "<=":lambda a, b : 1,
             ">=":lambda a, b : 1,
+            "s<":lambda a, b : 1,
+            "s>":lambda a, b : 1,
+            "s<=":lambda a, b : 1,
+            "s>=":lambda a, b : 1,
         }
         vstring_lookup = {
             "*": "  assign %s = %s * %s;\n",
@@ -318,6 +355,7 @@ class Binary:
             "&": "  assign %s = %s & %s;\n",
             "^": "  assign %s = %s ^ %s;\n",
             "<<":"  assign %s = %s << %s;\n",
+            "s<<":"  assign %s = $signed(%s) << $signed(%s);\n",
             ">>":"  assign %s = %s >> %s;\n",
             "==":"  assign %s = %s == %s;\n",
             "!=":"  assign %s = %s != %s;\n",
@@ -325,6 +363,10 @@ class Binary:
             ">": "  assign %s = %s > %s;\n",
             "<=":"  assign %s = %s <= %s;\n",
             ">=":"  assign %s = %s >= %s;\n",
+            "s<": "  assign %s = $signed(%s) < $signed(%s);\n",
+            "s>": "  assign %s = $signed(%s) > $signed(%s);\n",
+            "s<=":"  assign %s = $signed(%s) <= $signed(%s);\n",
+            "s>=":"  assign %s = $signed(%s) >= $signed(%s);\n",
         }
         self.bits = bits_lookup[operation](self.a.bits, self.b.bits)
         self.func = func_lookup[operation]
