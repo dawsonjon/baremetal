@@ -89,8 +89,8 @@ class Expression:
     def __le__(self, other):     return compare(self, other, "s<=")
     def __eq__(self, other):     return compare(self, other, "==")
     def __ne__(self, other):     return compare(self, other, "!=")
-    def __lshift__(self, other): return binary(self, other, "s<<")
-    def __rshift__(self, other): return binary(self, other, ">>")
+    def __lshift__(self, other): return binary(self, other, "<<")
+    def __rshift__(self, other): return binary(self, other, "s>>")
     def __and__(self, other):    return binary(self, other, "&")
     def __or__(self, other):     return binary(self, other, "|")
     def __xor__(self, other):    return binary(self, other, "^")
@@ -105,7 +105,7 @@ class Expression:
             vector=back_end.Slice(self, other.start, other.stop)
             subtype=Unsigned(vector.bits)
         return Expression(subtype, vector)
-    def get():
+    def get(self):
         return self.subtype.from_vector(self.vector.get())
 
 class Constant(Expression):

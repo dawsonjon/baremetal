@@ -1,4 +1,108 @@
 from baremetal import *
+from baremetal.back_end import sign
+
+#+
+for i in range(-4, 4):
+    for j in range(-4, 4):
+        assert (Signed(2).constant(i) + Signed(2).constant(j)).get() == sign((i + j) & 3, 2)
+
+#-
+for i in range(-4, 4):
+    for j in range(-4, 4):
+        assert (Signed(2).constant(i) - Signed(2).constant(j)).get() == sign((i - j) & 3, 2)
+#>
+for i in range(-4, 4):
+    for j in range(-4, 4):
+        assert (Signed(2).constant(i) > Signed(2).constant(j)).get() == int(sign(i&3, 2) > sign(j&3, 2))
+
+#<
+for i in range(-4, 4):
+    for j in range(-4, 4):
+        assert (Signed(2).constant(i) < Signed(2).constant(j)).get() == int(sign(i&3, 2) < sign(j&3, 2))
+
+#<=
+for i in range(-4, 4):
+    for j in range(-4, 4):
+        assert (Signed(2).constant(i) <= Signed(2).constant(j)).get() == int(sign(i&3, 2) <= sign(j&3, 2))
+
+#>
+for i in range(-4, 4):
+    for j in range(-4, 4):
+        assert (Signed(2).constant(i) > Signed(2).constant(j)).get() == int(sign(i&3, 2) > sign(j&3, 2))
+
+#>=
+for i in range(-4, 4):
+    for j in range(-4, 4):
+        assert (Signed(2).constant(i) >= Signed(2).constant(j)).get() == int(sign(i&3, 2) >= sign(j&3, 2))
+
+#==
+for i in range(-4, 4):
+    for j in range(-4, 4):
+        assert (Signed(2).constant(i) == Signed(2).constant(j)).get() == int(sign(i&3, 2) == sign(j&3, 2))
+
+#!=
+for i in range(-4, 4):
+    for j in range(-4, 4):
+        assert (Signed(2).constant(i) != Signed(2).constant(j)).get() == int(sign(i&3, 2) != sign(j&3, 2))
+
+#|
+for i in range(-4, 4):
+    for j in range(-4, 4):
+        assert (Signed(2).constant(i) | Signed(2).constant(j)).get() == sign((i | j) & 3, 2)
+
+#^
+for i in range(-4, 4):
+    for j in range(-4, 4):
+        assert (Signed(2).constant(i) ^ Signed(2).constant(j)).get() == sign((i ^ j) & 3, 2)
+
+#&
+for i in range(-4, 4):
+    for j in range(-4, 4):
+        assert (Signed(2).constant(i) & Signed(2).constant(j)).get() == sign((i & j) & 3, 2)
+
+#<<
+for i in range(-4, 4):
+    for j in range(2):
+        assert (Signed(2).constant(i) << Signed(2).constant(j)).get() == sign((i << j) & 3, 2)
+
+#>>
+for i in range(-4, 4):
+    for j in range(2):
+        assert (Signed(2).constant(i) >> Signed(2).constant(j)).get() == sign(i&3, 2) >> sign(j&3, 2)
+
+#*
+for i in range(-4, 4):
+    for j in range(-4, 4):
+        assert (Signed(2).constant(i) * Signed(2).constant(j)).get() == sign((i * j) & 3, 2)
+
+#-
+for j in range(-4, 4):
+    assert (-Signed(2).constant(i)).get() == sign(-i & 3, 2)
+
+#~
+for j in range(-4, 4):
+    assert (~Signed(2).constant(i)).get() == sign(~i & 3, 2)
+
+#select
+for i in range(8):
+    assert Signed(2).select(Signed(2).constant(i), 5, 6, 7, default=8).get() == (i&0x3)+5
+
+for i in range(8):
+    assert Signed(2).select(Signed(2).constant(i), 5, 6, 7, 8).get() == (i&0x3)+5
+
+for i in range(8):
+    assert Signed(2).select(Signed(2).constant(i), 5, 6, 7).get() == [5, 6, 7, 0][(i&0x3)]
+    
+#index
+for i in range(8):
+    for j in range(3):
+        assert Signed(3).constant(i)[j].get() == int((i & (1<<j))!=0)
+
+#slice
+for i in range(8):
+    for j in range(3):
+        for k in range(j+1):
+            assert Signed(3).constant(i)[j:k].get() == (i & (0xf >> 3-j)) >> k
 
 #+
 for i in range(8):
@@ -102,3 +206,5 @@ for i in range(8):
     for j in range(3):
         for k in range(j+1):
             assert Unsigned(3).constant(i)[j:k].get() == (i & (0xf >> 3-j)) >> k
+
+

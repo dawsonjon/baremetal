@@ -294,10 +294,11 @@ class Concatenate:
         self.b.walk(netlist)
 
 def sign(x, bits):
-    negative = value & (1<<(self.bits-1))
-    mask = ~((1 << self.bits)-1)
+    negative = x & (1<<(bits-1))
+    mask = ~((1 << bits)-1)
     if negative:
-        return mask | value
+        return mask | x
+    return x
 
 
 class Binary:
@@ -320,10 +321,10 @@ class Binary:
             ">":lambda a, b : a > b,
             "<=":lambda a, b : a <= b,
             ">=":lambda a, b : a >= b,
-            "s<":lambda a, b : sign(x, a.bits) < sign(b, b.bits),
-            "s>":lambda a, b : sign(x, a.bits) > sign(b, b.bits),
-            "s<=":lambda a, b : sign(x, a.bits) <= sign(b, b.bits),
-            "s>=":lambda a, b : sign(x, a.bits) >= sign(b, b.bits),
+            "s<":lambda x, y : sign(x, a.bits) < sign(y, b.bits),
+            "s>":lambda x, y : sign(x, a.bits) > sign(y, b.bits),
+            "s<=":lambda x, y : sign(x, a.bits) <= sign(y, b.bits),
+            "s>=":lambda x, y : sign(x, a.bits) >= sign(y, b.bits),
         }
 
         bits_lookup = {
@@ -355,7 +356,7 @@ class Binary:
             "&": "  assign %s = %s & %s;\n",
             "^": "  assign %s = %s ^ %s;\n",
             "<<":"  assign %s = %s << %s;\n",
-            "s<<":"  assign %s = $signed(%s) << $signed(%s);\n",
+            "s>>":"  assign %s = $signed(%s) >> $signed(%s);\n",
             ">>":"  assign %s = %s >> %s;\n",
             "==":"  assign %s = %s == %s;\n",
             "!=":"  assign %s = %s != %s;\n",
