@@ -121,6 +121,8 @@ class Select:
 
     def get(self):
         idx = self.select.get()
+        if idx is None:
+            return None
         if idx >= len(self.args):
             return truncate(self.default.get(), self.bits)
         return truncate(self.args[idx].get(), self.bits)
@@ -190,7 +192,7 @@ class _BlackBoxOut:
         self.name     = get_sn()
 
     def get(self):
-        return self.output.get()
+        return truncate(self.output.get(), self.bits)
 
     def walk(self, netlist):
         if id(self) in [id(i) for i in netlist.expressions]:
@@ -214,7 +216,10 @@ class Slice:
         self.name = get_sn()
 
     def get(self):
-        return truncate(self.a.get() >> self.lsb, self.bits)
+        value = self.a.get() 
+        if value is None:
+            return None
+        return truncate(value >> self.lsb, self.bits)
 
     def walk(self, netlist):
         if id(self) in [id(i) for i in netlist.expressions]:
@@ -262,7 +267,10 @@ class Unary:
         self.name = get_sn()
 
     def get(self):
-        return truncate(self.func(self.a.get()), self.bits)
+        value = self.a.get()
+        if value is None:
+            return None
+        return truncate(self.func(value), self.bits)
 
     def generate(self):
         return self.vstring%(self.name, self.a.name)
@@ -281,7 +289,13 @@ class Concatenate:
         self.name = get_sn()
 
     def get(self):
-        return truncate((self.a.get()<<self.b.bits) | self.b.get(), self.bits)
+        a = self.a.get()
+        if a is None:
+            return None
+        b = self.b.get()
+        if b is None:
+            return None
+        return truncate((a<<self.b.bits) | b, self.bits)
 
     def generate(self):
         return "  assign %s = {%s, %s};"%(self.name, self.a.name, self.b.name)
@@ -375,7 +389,13 @@ class Binary:
         self.name = get_sn()
 
     def get(self):
-        return truncate(self.func(self.a.get(), self.b.get()), self.bits)
+        a = self.a.get()
+        if a is None:
+            return None
+        b = self.b.get()
+        if b is None:
+            return None
+        return truncate(self.func(a, b), self.bits)
 
     def generate(self):
         return self.vstring%(self.name, self.a.name, self.b.name)
