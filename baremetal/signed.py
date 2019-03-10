@@ -99,10 +99,10 @@ class Expression:
     def __abs__(self):           return self.subtype.select(self > 0, -self, self)
     def __getitem__(self, other):
         try:
-            vector=back_end.Index(self, int(other))
+            vector=back_end.Index(self.vector, int(other))
             subtype=Unsigned(vector.bits)
         except TypeError:
-            vector=back_end.Slice(self, other.start, other.stop)
+            vector=back_end.Slice(self.vector, other.start, other.stop)
             subtype=Unsigned(vector.bits)
         return Expression(subtype, vector)
     def get(self):

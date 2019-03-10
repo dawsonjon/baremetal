@@ -94,12 +94,12 @@ for i in range(8):
     assert Signed(2).select(Signed(2).constant(i), 5, 6, 7).get() == [5, 6, 7, 0][(i&0x3)]
     
 #index
-for i in range(8):
+for i in range(-4, 4):
     for j in range(3):
         assert Signed(3).constant(i)[j].get() == int((i & (1<<j))!=0)
 
 #slice
-for i in range(8):
+for i in range(-4, 4):
     for j in range(3):
         for k in range(j+1):
             assert Signed(3).constant(i)[j:k].get() == (i & (0xf >> 3-j)) >> k
