@@ -24,9 +24,13 @@ class Signed:
         self.bits = bits
 
     def to_vector(self, value):
+        if value is None:
+            return None
         return int(round(float(value)))
 
     def from_vector(self, value):
+        if value is None:
+            return None
         negative = value & (1<<(self.bits-1))
         mask = ~((1 << self.bits)-1)
         if negative:
@@ -52,34 +56,37 @@ def binary(a, b, operator):
     b = const(b)
     binary = back_end.Binary(a.vector, b.vector, operator)
     subtype = Signed(binary.bits)
-    return Expression(subtype, binary)
+    return Expression(subtype, binary, "%s%s%s"%(a, operator, b))
 
 def compare(a, b, operator):
     b = const(b)
     binary = back_end.Binary(a.vector, b.vector, operator)
     subtype = Unsigned(1)
-    return Expression(subtype, binary)
+    return Expression(subtype, binary, "%s%s%s"%(a, operator, b))
 
 def unary(a, operator):
     unary = back_end.Unary(a.vector, operator)
     subtype = Signed(unary.bits)
-    return Expression(subtype, unary)
+    return Expression(subtype, unary, "%s%s"%(operator, a))
 
 class Expression:
-    def __init__(self, subtype, vector):
+    def __init__(self, subtype, vector, string):
         self.subtype = subtype
         self.vector = vector
+        self.string = string
 
     def cat(self, other):
-        b = const(b)
+        a = self
+        b = const(other)
         binary = back_end.Concatenate(a.vector, b.vector)
-        subtype = Unsigned(binary.bits)
-        return Expression(subtype, binary, "%s.cat(%)"%(repr(a), repr(b)))
+        subtype = Signed(binary.bits)
+        return Expression(subtype, binary, "%s.cat(%s)"%(repr(a), repr(b)))
 
     def resize(self, bits):
-        binary = back_end.Resize(a.vector, bits)
-        subtype = Unsigned(binary.bits)
-        return Expression(subtype, binary, "%s.resize(%)"%(repr(a), str(bits)))
+        vector = back_end.Resize(self.vector, bits)
+        subtype = Signed(vector.bits)
+        return Expression(subtype, vector, "%s.resize(%s)"%(repr(self), str(bits)))
+
     def __add__(self, other):    return binary(self, other, "+")
     def __sub__(self, other):    return binary(self, other, "-")
     def __mul__(self, other):    return binary(self, other, "*")
@@ -101,22 +108,28 @@ class Expression:
         try:
             vector=back_end.Index(self.vector, int(other))
             subtype=Unsigned(vector.bits)
+            return Expression(subtype, vector, "%s[%s]"%(self, other))
         except TypeError:
             vector=back_end.Slice(self.vector, other.start, other.stop)
             subtype=Unsigned(vector.bits)
-        return Expression(subtype, vector)
+            return Expression(subtype, vector, "%s[%s:%s]"%(self, other.start, other.stop))
     def get(self):
         return self.subtype.from_vector(self.vector.get())
+
+    def __repr__(self):
+        return self.string
 
 class Constant(Expression):
     def __init__(self, subtype, value):
         self.subtype = subtype
         self.vector = back_end.Constant(subtype.to_vector(value), subtype.bits)
+        self.string = "Constant(%s)"%(value)
 
 class Input(Expression):
     def __init__(self, subtype, name):
         self.subtype = subtype
         self.vector = back_end.Input(name, subtype.bits)
+        self.string = "input(%s)"%(name)
 
     def set(self, value):
         self.vector.set(self.subtype.to_vector(value))

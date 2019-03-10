@@ -60,21 +60,22 @@ def unary(a, operator):
     return Expression(subtype, unary, "("+operator+repr(a)+")")
 
 class Expression:
-    def __init__(self, subtype, vector, string=""):
+    def __init__(self, subtype, vector, string):
         self.subtype = subtype
         self.vector = vector
         self.string = string
 
     def cat(self, other):
-        b = const(b)
-        binary = back_end.Concatenate(a.vector, b.vector)
-        subtype = Unsigned(binary.bits)
-        return Expression(subtype, binary, "%s.cat(%)"%(repr(a), repr(b)))
+        a = self
+        b = const(other)
+        vector = back_end.Concatenate(a.vector, b.vector)
+        subtype = Unsigned(vector.bits)
+        return Expression(subtype, vector, "%s.cat(%s)"%(repr(a), repr(b)))
 
     def resize(self, bits):
-        binary = back_end.Resize(a.vector, bits)
+        binary = back_end.Resize(self.vector, bits)
         subtype = Unsigned(binary.bits)
-        return Expression(subtype, binary, "%s.resize(%)"%(repr(a), str(bits)))
+        return Expression(subtype, binary, "%s.resize(%s)"%(repr(self), str(bits)))
 
     def __add__(self, other):    return binary(self, other, "+")
     def __sub__(self, other):    return binary(self, other, "-")
@@ -97,10 +98,11 @@ class Expression:
         try:
             vector=back_end.Index(self.vector, int(other))
             subtype=Unsigned(vector.bits)
+            return Expression(subtype, vector, "%s[%s]"%(self, other))
         except TypeError:
             vector=back_end.Slice(self.vector, other.start, other.stop)
             subtype=Unsigned(vector.bits)
-        return Expression(subtype, vector)
+            return Expression(subtype, vector, "%s[%s:%s]"%(self, other.start, other.stop))
     def get(self):
         return self.subtype.from_vector(self.vector.get())
 

@@ -282,7 +282,7 @@ class Unary:
         self.a.walk(netlist)
 
 class Concatenate:
-    def __init__(self, a, b, operation):
+    def __init__(self, a, b):
         self.a = a
         self.b = b
         self.bits = self.a.bits + self.b.bits
