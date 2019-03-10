@@ -43,7 +43,7 @@ class Unsigned:
         return Register(self, clk, en, init, d)
 
     def wire(self):
-        return Register(self)
+        return Wire(self)
 
 def Boolean():
     return Unsigned(1)
@@ -121,17 +121,16 @@ class Input(Expression):
     def __init__(self, subtype, name):
         self.subtype = subtype
         self.vector = back_end.Input(name, subtype.bits)
+        self.string = "Input(%s)"%name
 
     def set(self, value):
         self.vector.set(self.subtype.to_vector(value))
-
-    def __repr__(self):
-        return "input(%s)"%self.vector.name
 
 class Output(Expression):
     def __init__(self, subtype, name, expression):
         self.subtype = subtype
         self.vector = back_end.Output(name, expression.vector)
+        self.string = "Output(%s)"%name
 
     def get(self):
         return self.subtype.from_vector(self.vector.get())
@@ -164,7 +163,7 @@ class Register(Expression):
 class Wire(Expression):
     def __init__(self, subtype):
         self.subtype = subtype
-        self.vector = back_end.Wire(clock=clk, bits=subtype.bits)
+        self.vector = back_end.Wire(bits=subtype.bits)
 
     def drive(self, expression):
         self.vector.drive(expression.vector)

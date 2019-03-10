@@ -53,12 +53,12 @@ class Wire:
         self.bits = bits
 
     def get(self):
-        return truncate(self.drive.get(), self.bits)
+        return truncate(self.d.get(), self.bits)
 
     def walk(self, netlist):
         if id(self) in [id(i) for i in netlist.expressions]:
             return
-        self.drive.walk(netlist)
+        self.d.walk(netlist)
 
     def drive(self, expression):
         self.d = expression

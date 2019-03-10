@@ -52,6 +52,9 @@ class Signed:
     def register(self, clk, en=1, init=None, d=None):
         return Register(self, clk, en, init, d)
 
+    def wire(self):
+        return Wire(self)
+
 def binary(a, b, operator):
     b = const(b)
     binary = back_end.Binary(a.vector, b.vector, operator)
@@ -129,7 +132,7 @@ class Input(Expression):
     def __init__(self, subtype, name):
         self.subtype = subtype
         self.vector = back_end.Input(name, subtype.bits)
-        self.string = "input(%s)"%(name)
+        self.string = "Input(%s)"%(name)
 
     def set(self, value):
         self.vector.set(self.subtype.to_vector(value))
@@ -138,6 +141,7 @@ class Output(Expression):
     def __init__(self, subtype, name, expression):
         self.subtype = subtype
         self.vector = back_end.Output(name, expression.vector)
+        self.string = "Output(%s)"%name
 
     def get(self):
         return self.subtype.from_vector(self.vector.get())
@@ -157,6 +161,18 @@ class Register(Expression):
         init = init if init is None else int(init)
         en = const(en).vector
         self.vector = back_end.Register(clock=clk, bits=subtype.bits, en=en, d=d, init=init)
+        self.string = "Register(%s)"%clk
 
     def d(self, expression):
         self.vector.d = expression.vector
+
+class Wire(Expression):
+    def __init__(self, subtype):
+        self.subtype = subtype
+        self.vector = back_end.Wire(bits=subtype.bits)
+
+    def drive(self, expression):
+        self.vector.drive(expression.vector)
+
+    def __repr__(self):
+        return "wire"
