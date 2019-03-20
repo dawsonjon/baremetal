@@ -423,7 +423,7 @@ class Binary:
             "&": "  assign %s = %s & %s;\n",
             "^": "  assign %s = %s ^ %s;\n",
             "<<":"  assign %s = %s << %s;\n",
-            "s>>":"  assign %s = $signed(%s) >> $signed(%s);\n",
+            "s>>":"  assign %s = $signed(%s) >>> $signed(%s);\n",
             ">>":"  assign %s = %s >> %s;\n",
             "==":"  assign %s = %s == %s;\n",
             "!=":"  assign %s = %s != %s;\n",
@@ -518,3 +518,4 @@ endmodule"""%(
         if id(i) not in [id(x) for x in self.inputs]]),
     "".join([i.generate() for i in self.expressions + self.outputs]),
 )
+
