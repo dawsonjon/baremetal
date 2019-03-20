@@ -118,13 +118,13 @@ for i in range(8):
 #index
 for i in range(-4, 4):
     for j in range(3):
-        assert Signed(3).constant(i)[j].get() == int((i & (1<<j))!=0)
+        assert Signed(3).constant(i)[j].get() == sign(int((i & (1<<j))!=0), 1)
 
 #slice
 for i in range(-4, 4):
     for j in range(3):
         for k in range(j+1):
-            assert Signed(3).constant(i)[j:k].get() == (i & (0xf >> 3-j)) >> k
+            assert Signed(3).constant(i)[j:k].get() == sign((i & (0xf >> 3-j)) >> k, j-k+1)
 
 #resize
 for i in range(-4, 4):
