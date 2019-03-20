@@ -104,12 +104,55 @@ class Register:
         return """
   reg [%s:0] %s_reg;
   always@(posedge %s) begin
-    if %s begin
+    if (%s) begin
       %s_reg <= %s;
     end
   end
   assign %s = %s_reg;
 """%(self.bits-1, self.name, self.clock.name, self.en.name, self.name, self.d.name, self.name, self.name)
+
+class ROM:
+    def __init__(self, bits, select, *args, **kwargs):
+        self.select=select
+        self.args=[int(i) for i in args]
+        self.default=int(kwargs.get("default", 0))
+        self.bits = bits
+        self.name = get_sn()
+
+    def get(self):
+        idx = self.select.get()
+        if idx is None:
+            return None
+        if idx >= len(self.args):
+            return truncate(self.default.get(), self.bits)
+        return truncate(self.args[idx], self.bits)
+
+    def walk(self, netlist):
+        if id(self) in [id(i) for i in netlist.expressions]:
+            return
+        netlist.expressions.append(self)
+        self.select.walk(netlist)
+
+    def generate(self):
+        select_string = "\n".join(["      %s:%s_reg <= %s;"%(i, self.name, n) for i, n in enumerate(self.args)])
+        default_string = "\n      default:%s_reg <= %s;"%(self.name, self.default)
+    
+        return """
+  reg [%s:0] %s_reg;
+  always@(*) begin
+    case (%s)
+%s
+    endcase
+  end
+  assign %s = %s_reg;
+"""%(
+        self.bits-1,
+        self.name,
+        self.select.name, 
+        select_string+default_string,
+        self.name,
+        self.name
+)
 
 class Select:
     def __init__(self, select, *args, **kwargs):
@@ -142,10 +185,10 @@ class Select:
     
         return """
   reg [%s:0] %s_reg;
-  always@(*)
+  always@(*) begin
     case (%s)
 %s
-    endcase;
+    endcase
   end
   assign %s = %s_reg;
 """%(
@@ -232,13 +275,20 @@ class Slice:
             self.name, self.a.name, self.msb, self.lsb)
 
 class Resize:
-    def __init__(self, a, bits):
+    def __init__(self, a, bits, signed=False):
         self.a = a
         self.bits = int(bits)
         self.name = get_sn()
+        self.signed = signed
 
     def get(self):
-        return truncate(self.a.get(), self.bits)
+        if self.signed:
+            value = self.a.get()
+            if value is None:
+                return None
+            return truncate(sign(self.a.get(), self.a.bits), self.bits)
+        else:
+            return truncate(self.a.get(), self.bits)
 
     def walk(self, netlist):
         if id(self) in [id(i) for i in netlist.expressions]:
@@ -247,7 +297,10 @@ class Resize:
         self.a.walk(netlist)
 
     def generate(self):
-        return "  assign %s = %s;\n"%(self.name, self.a.name)
+        if self.signed:
+            return "  assign %s = $signed(%s);\n"%(self.name, self.a.name)
+        else:
+            return "  assign %s = %s;\n"%(self.name, self.a.name)
 
 class Unary:
     def __init__(self, a, operation):
@@ -426,6 +479,7 @@ class Clock:
     def __init__(self, name="clk"):
         self.registers = []
         self.name = name
+        self.bits = 1
 
     def initialise(self):
         for i in self.registers:
@@ -458,7 +512,7 @@ module %s(%s);
 endmodule"""%(
     self.name,
     ", ".join([i.name for i in self.clocks+self.inputs+self.outputs]),
-    "".join(["  input [%s:0] %s;\n"%(i.bits-1, i.name) for i in self.inputs]),
+    "".join(["  input [%s:0] %s;\n"%(i.bits-1, i.name) for i in self.inputs+self.clocks]),
     "".join(["  output [%s:0] %s;\n"%(i.bits-1, i.name) for i in self.outputs]),
     "".join(["  wire [%s:0] %s;\n"%(i.bits-1, i.name) for i in self.expressions 
         if id(i) not in [id(x) for x in self.inputs]]),

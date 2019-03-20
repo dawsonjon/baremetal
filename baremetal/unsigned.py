@@ -10,7 +10,7 @@ def number_of_bits_needed(x):
         n += 1
 
 def const(value):
-    if isinstance(value, Expression):
+    if hasattr(value, "vector"):
         return value
     bits = number_of_bits_needed(value)
     subtype = Unsigned(bits)

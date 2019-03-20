@@ -1,5 +1,6 @@
 import back_end
 from unsigned import Unsigned
+import unsigned
 
 
 def number_of_bits_needed(x):
@@ -12,7 +13,7 @@ def number_of_bits_needed(x):
         n += 1
 
 def const(value):
-    if isinstance(value, Expression):
+    if hasattr(value, "vector"):
         return value
     bits = number_of_bits_needed(value)
     subtype = Signed(bits)
@@ -49,6 +50,9 @@ class Signed:
     def select(self, select, *args, **kwargs):
         return Select(self, select, *args, **kwargs)
 
+    def rom(self, select, *args, **kwargs):
+        return ROM(self, select, *args, **kwargs)
+
     def register(self, clk, en=1, init=None, d=None):
         return Register(self, clk, en, init, d)
 
@@ -56,16 +60,30 @@ class Signed:
         return Wire(self)
 
 def binary(a, b, operator):
+    string = "%s%s%s"%(a, operator, b)
     b = const(b)
-    binary = back_end.Binary(a.vector, b.vector, operator)
+    a = a.vector
+    b = b.vector
+    if a.bits < b.bits:
+        a = back_end.Resize(a, b.bits, True)
+    if b.bits < a.bits:
+        b = back_end.Resize(b, a.bits, True)
+    binary = back_end.Binary(a, b, operator)
     subtype = Signed(binary.bits)
-    return Expression(subtype, binary, "%s%s%s"%(a, operator, b))
+    return Expression(subtype, binary, string)
 
 def compare(a, b, operator):
+    string = "%s%s%s"%(a, operator, b)
     b = const(b)
-    binary = back_end.Binary(a.vector, b.vector, operator)
+    a = a.vector
+    b = b.vector
+    if a.bits < b.bits:
+        a = back_end.Resize(a, b.bits, True)
+    if b.bits < a.bits:
+        b = back_end.Resize(b, a.bits, True)
+    binary = back_end.Binary(a, b, operator)
     subtype = Unsigned(1)
-    return Expression(subtype, binary, "%s%s%s"%(a, operator, b))
+    return unsigned.Expression(subtype, binary, string)
 
 def unary(a, operator):
     unary = back_end.Unary(a.vector, operator)
@@ -81,12 +99,14 @@ class Expression:
     def cat(self, other):
         a = self
         b = const(other)
-        binary = back_end.Concatenate(a.vector, b.vector)
+        a = a.vector
+        b = b.vector
+        binary = back_end.Concatenate(a, b)
         subtype = Signed(binary.bits)
-        return Expression(subtype, binary, "%s.cat(%s)"%(repr(a), repr(b)))
+        return Expression(subtype, binary, "%s.cat(%s)"%(repr(self), repr(other)))
 
     def resize(self, bits):
-        vector = back_end.Resize(self.vector, bits)
+        vector = back_end.Resize(self.vector, bits, signed=True)
         subtype = Signed(vector.bits)
         return Expression(subtype, vector, "%s.resize(%s)"%(repr(self), str(bits)))
 
@@ -110,11 +130,11 @@ class Expression:
     def __getitem__(self, other):
         try:
             vector=back_end.Index(self.vector, int(other))
-            subtype=Unsigned(vector.bits)
+            subtype=Signed(vector.bits)
             return Expression(subtype, vector, "%s[%s]"%(self, other))
         except TypeError:
             vector=back_end.Slice(self.vector, other.start, other.stop)
-            subtype=Unsigned(vector.bits)
+            subtype=Signed(vector.bits)
             return Expression(subtype, vector, "%s[%s:%s]"%(self, other.start, other.stop))
     def get(self):
         return self.subtype.from_vector(self.vector.get())
@@ -150,20 +170,40 @@ class Select(Expression):
     def __init__(self, subtype, select, *args, **kwargs):
         select = const(select).vector
         args = [const(i).vector for i in args]
+        bits = max([i.bits for i in args])
+        args = [i if i.bits==bits else back_end.Resize(i, bits, True) for i in args]
         default = const(kwargs.get("default", 0)).vector
         self.vector = back_end.Select(select, *args, default=default)
-        self.subtype = Unsigned(self.vector.bits)
+        self.subtype = Signed(self.vector.bits)
+        self.string = "Select()"
+
+class ROM(Expression):
+    def __init__(self, subtype, select, *args, **kwargs):
+        select = const(select).vector
+        args = [int(i) for i in args]
+        default = int(kwargs.get("default", 0))
+        self.vector = back_end.ROM(subtype.bits, select, *args, default=default)
+        self.subtype = subtype
+        self.string = "ROM()"
 
 class Register(Expression):
     def __init__(self, subtype, clk, en, init, d):
         self.subtype = subtype
-        d = d if d is None else const(d).vector
+        if d is None:
+            d=None
+        else:
+            d = const(d).vector
+            if d.bits != self.subtype.bits:
+                d = back_end.Resize(d, self.subtype.bits, True)
         init = init if init is None else int(init)
         en = const(en).vector
         self.vector = back_end.Register(clock=clk, bits=subtype.bits, en=en, d=d, init=init)
         self.string = "Register(%s)"%clk
 
     def d(self, expression):
+        expression = const(expression)
+        if expression.vector.bits != self.subtype.bits:
+            expression = back_end.Resize(expression, self.subtype.bits, True)
         self.vector.d = expression.vector
 
 class Wire(Expression):
@@ -172,6 +212,8 @@ class Wire(Expression):
         self.vector = back_end.Wire(bits=subtype.bits)
 
     def drive(self, expression):
+        if expression.bits != self.subtype.bits:
+            expression = back_end.Resize(expression, self.subtype.bits, True)
         self.vector.drive(expression.vector)
 
     def __repr__(self):
