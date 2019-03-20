@@ -45,6 +45,9 @@ class Unsigned:
     def wire(self):
         return Wire(self)
 
+    def rom(self, select, *args, **kwargs):
+        return ROM(self, select, *args, **kwargs)
+
 def Boolean():
     return Unsigned(1)
 
@@ -145,6 +148,15 @@ class Select(Expression):
 
     def __repr__(self):
         return "select(%s)"%self.select
+
+class ROM(Expression):
+    def __init__(self, subtype, select, *args, **kwargs):
+        select = const(select).vector
+        args = [int(i) for i in args]
+        default = int(kwargs.get("default", 0))
+        self.vector = back_end.ROM(subtype.bits, select, *args, default=default)
+        self.subtype = subtype
+        self.string = "ROM()"
 
 class Register(Expression):
     def __init__(self, subtype, clk, en, init, d):

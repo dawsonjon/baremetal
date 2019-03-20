@@ -2,12 +2,20 @@
 the results in a verilog sim of the generated code"""
 
 import subprocess
+import os
 
 from baremetal import *
 from baremetal.back_end import sign
 
 def test(self, stimulus, latency):
     """A function that generates a testbench for the generated logic."""
+
+    if not os.path.exists("test"):
+        os.mkdir("test")
+    current_dir = os.getcwd()
+    os.chdir("test")
+    if not os.path.exists("stim"):
+        os.mkdir("stim")
 
     self.walk()
     stimulus_length = max([len(i) for i in stimulus.values()])
@@ -82,6 +90,8 @@ def test(self, stimulus, latency):
                 j = None
             response[i.name].append(j)
         f.close()
+    os.chdir(current_dir)
+
     return response
 
 
@@ -149,6 +159,7 @@ for i in range(4):
     for j in range(i):
         check_binary(lambda x, y:x[i:j], range(16), range(16))
 check_binary(lambda x, y:cat(x, y), range(16), range(16))
+check_binary(lambda x, y:x.subtype.rom(x, 15, 14, 13, 12, 10), range(16), range(16))
 
 check_binary(lambda x, y:x+y, range(16), range(16), True)
 check_binary(lambda x, y:x-y, range(16), range(16), True)
@@ -172,3 +183,4 @@ for i in range(4):
     for j in range(i):
         check_binary(lambda x, y:x[i:j], range(16), range(16), True)
 check_binary(lambda x, y:cat(x, y), range(16), range(16), True)
+check_binary(lambda x, y:x.subtype.rom(x, 15, 14, 13, 12, 10), range(16), range(16), True)

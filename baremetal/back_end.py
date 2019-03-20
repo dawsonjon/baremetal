@@ -124,7 +124,7 @@ class ROM:
         if idx is None:
             return None
         if idx >= len(self.args):
-            return truncate(self.default.get(), self.bits)
+            return truncate(self.default, self.bits)
         return truncate(self.args[idx], self.bits)
 
     def walk(self, netlist):
