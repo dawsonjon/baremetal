@@ -1,4 +1,5 @@
 import back_end
+from math import ceil, log
 
 def number_of_bits_needed(x):
     n=1
@@ -47,6 +48,9 @@ class Unsigned:
 
     def rom(self, select, *args, **kwargs):
         return ROM(self, select, *args, **kwargs)
+
+    def ram(self, *args, **kwargs):
+        return RAM(self, *args, **kwargs)
 
 def Boolean():
     return Unsigned(1)
@@ -157,6 +161,31 @@ class ROM(Expression):
         self.vector = back_end.ROM(subtype.bits, select, *args, default=default)
         self.subtype = subtype
         self.string = "ROM()"
+
+class RAM:
+    def __init__(self, subtype, depth, clk, asynchronous=True):
+        self.subtype = subtype
+        self.write_address = Unsigned(int(ceil(log(depth, 2)))).wire()
+        self.read_address = Unsigned(int(ceil(log(depth, 2)))).wire()
+        self.write_data = subtype.wire()
+        self.read_data = subtype.wire()
+        self.write_enable = Boolean().wire()
+        self.read_enable = Boolean().wire()
+        self.ram = back_end.RAM(subtype.bits, depth, clk, 
+                self.write_address.vector, self.write_data.vector, 
+                self.write_enable.vector, self.read_address.vector, 
+                self.read_enable.vector, asynchronous=asynchronous)
+
+    def write(self, wraddr, wrdata, wren):
+        self.write_address.drive(wraddr)
+        self.write_data.drive(wrdata)
+        self.write_enable.drive(wren)
+
+    def read(self, rdaddr, rden=1):
+        self.read_address.drive(rdaddr)
+        self.read_enable.drive(const(rden))
+        return Expression(self.subtype, self.ram, "ram()")
+
 
 class Register(Expression):
     def __init__(self, subtype, clk, en, init, d):

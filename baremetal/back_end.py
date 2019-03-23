@@ -1,3 +1,11 @@
+from math import ceil, log
+
+enable_warnings = False
+
+def warning(message):
+    if enable_warnings:
+        print message
+
 def truncate(expression, bits):
     if expression is None:
         return None
@@ -51,6 +59,7 @@ class Wire:
     def __init__(self, bits):
         self.d = None
         self.bits = bits
+        self.name = get_sn()
 
     def get(self):
         return truncate(self.d.get(), self.bits)
@@ -58,13 +67,14 @@ class Wire:
     def walk(self, netlist):
         if id(self) in [id(i) for i in netlist.expressions]:
             return
+        netlist.expressions.append(self)
         self.d.walk(netlist)
 
     def drive(self, expression):
         self.d = expression
 
     def generate(self):
-        return "  assign %s = %s"%(self.name, self.d.name)
+        return "  assign %s = %s;\n"%(self.name, self.d.name)
 
 class Register:
 
@@ -109,7 +119,141 @@ class Register:
     end
   end
   assign %s = %s_reg;
-"""%(self.bits-1, self.name, self.clock.name, self.en.name, self.name, self.d.name, self.name, self.name)
+"""%(self.bits-1, self.name, self.clock.name, self.en.name, self.name, 
+        self.d.name, self.name, self.name)
+
+class RAM:
+    def __init__(self, bits, depth, clk, waddr, wdata, wen, raddr, ren=1, 
+            asynchronous=True):
+
+        print asynchronous
+
+        clk.registers.append(self)
+        self.asynchronous = asynchronous
+        self.waddr = waddr
+        self.wdata = wdata
+        self.wen = wen
+        self.raddr = raddr
+        self.ren = ren
+        self.ram = [None for i in range(depth)]
+        self.value = None
+
+        self.bits=int(bits)
+        self.depth=int(depth)
+        self.name = get_sn()
+
+    def initialise(self):
+        self.ram = [None for i in range(self.depth)]
+        self.value = None
+
+    def evaluate(self):
+        self.do_write = self.wen.get()
+        self.data_to_write = self.wdata.get()
+        self.address_to_write = self.waddr.get()
+        self.address_to_read = self.raddr.get()
+        self.do_read = self.ren.get()
+
+    def update(self):
+
+        #write to the RAM if enabled
+        if self.do_write:
+            if self.address_to_write is None:
+                self.ram = [None for i in range(self.depth)]
+            else:
+                self.ram[self.address_to_write]=self.data_to_write
+
+        #if enable is None, we may have corrupted some or all RAM
+        if self.do_write is None:
+            if self.address_to_write is None:
+                self.ram = [None for i in range(self.depth)]
+            else:
+                self.ram[self.address_to_write]=None
+
+        if not self.asynchronous:
+            if self.do_read is None:
+                return None
+            if self.do_read:
+                if self.address_to_read is None:
+                    return None
+                if self.address_to_read >= self.depth:
+                    warning("RAM address out of range") 
+                self.value = truncate(self.ram[self.address_to_read], self.bits)
+
+    def get(self):
+
+        if self.asynchronous:
+            idx = self.raddr.get()
+            if idx is None:
+                return None
+            if idx >= self.depth:
+                warning("RAM address out of range") 
+            return truncate(self.ram[idx], self.bits)
+        else:
+            return self.value 
+
+    def walk(self, netlist):
+        if id(self) in [id(i) for i in netlist.expressions]:
+            return
+        netlist.expressions.append(self)
+
+        self.ren.walk(netlist)
+        self.raddr.walk(netlist)
+        self.wen.walk(netlist)
+        self.waddr.walk(netlist)
+        self.wdata.walk(netlist)
+
+    def generate(self):
+        if self.asynchronous:
+            return """
+  reg [%s:0] %s_ram [%s:0];
+  always@(posedge clk) begin
+    if (%s) begin
+        %s_ram[%s] <= %s;
+    end
+  end
+  assign %s = %s_ram[%s];
+"""%(
+            self.bits-1,
+            self.name,
+            int(ceil(log(self.depth, 2)))-1,
+            self.wen.name,
+            self.name,
+            self.waddr.name,
+            self.wdata.name,
+            self.name,
+            self.name,
+            self.raddr.name,
+)
+        else:
+            return """
+  reg [%s:0] %s_ram [%s:0];
+  reg [%s:0] %s_reg;
+  always@(posedge clk) begin
+    if (%s) begin
+        %s_reg <= %s_ram[%s];
+    end
+    if (%s) begin
+        %s_ram[%s] <= %s;
+    end
+  end
+  assign %s = %s_reg;
+"""%(
+            self.bits-1,
+            self.name,
+            int(ceil(log(self.depth, 2)))-1,
+            self.bits-1, 
+            self.name,
+            self.ren.name,
+            self.name,
+            self.name,
+            self.raddr.name,
+            self.wen.name,
+            self.name,
+            self.waddr.name,
+            self.wdata.name,
+            self.name,
+            self.name
+    )
 
 class ROM:
     def __init__(self, bits, select, *args, **kwargs):
@@ -199,52 +343,6 @@ class Select:
         self.name,
         self.name
 )
-
-def blackbox(inputs, outputs, template, mapping):
-    names = {}
-    for port in mapping:
-        names[port] = mapping[port].name
-    code = template.format(**names)
-    blackbox = _BlackBox(inputs, code)
-    output_expressions = [_BlackBoxOut(blackbox, idx, i) for idx, i in enumerate(outputs)]
-    return output_expressions
-
-class _BlackBox:
-    def __init__(self, inputs, code):
-        self.inputs = inputs
-        self.code = code
-
-    def walk(self, netlist, idx):
-        if idx:
-            return
-        for i in self.inputs:
-            i.walk(netlist)
-
-    def generate(self, idx):
-        if idx:
-            return ""
-        else:
-            return self.code
-
-class _BlackBoxOut:
-    def __init__(self, blackbox, idx, output):
-        self.blackbox = blackbox
-        self.idx      = idx
-        self.output   = output
-        self.bits     = output.bits
-        self.name     = get_sn()
-
-    def get(self):
-        return truncate(self.output.get(), self.bits)
-
-    def walk(self, netlist):
-        if id(self) in [id(i) for i in netlist.expressions]:
-            return
-        netlist.expressions.append(self)
-        self.blackbox.walk(netlist, self.idx)
-
-    def generate(self):
-        return "  assign %s = %s;\n"%(self.name, self.output.name)+self.blackbox.generate(self.idx)
 
 def Index(a, b):
     return Slice(a, b, b)
