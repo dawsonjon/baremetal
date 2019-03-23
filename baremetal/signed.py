@@ -1,6 +1,6 @@
-import back_end
-from unsigned import Unsigned
-import unsigned
+from . import back_end
+from .unsigned import Unsigned
+from . import unsigned
 
 
 def number_of_bits_needed(x):

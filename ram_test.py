@@ -21,7 +21,7 @@ wren.set(0)
 for i in range(16):
     rdaddr.set(i)
     clk.tick()
-    print rddata.get()
+    print(rddata.get())
 
 n = Netlist("dut", [clk], [wraddr, wrdata, wren, rdaddr], [rddata])
-print n.generate()
+print(n.generate())

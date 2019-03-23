@@ -18,10 +18,10 @@ def test(self, stimulus, latency):
         os.mkdir("stim")
 
     self.walk()
-    stimulus_length = max([len(i) for i in stimulus.values()])
+    stimulus_length = max([len(i) for i in list(stimulus.values())])
     stop_clocks = stimulus_length + latency + 1
 
-    for n, s in stimulus.iteritems():
+    for n, s in list(stimulus.items()):
         f = open("stim/"+n, 'w')
         f.write("".join(["%d\n"%i for i in s]))
         f.close()
@@ -131,56 +131,56 @@ def check_binary(func_to_test, a_stim, b_stim, signed=False):
         actual = [None if i is None else sign(i, 4) for i in actual]
 
     if actual == expected:
-        print "pass"
+        print("pass")
     else:
-        print "a", a_stim
-        print "b", b_stim
-        print "failed", actual, expected
+        print(("a", a_stim))
+        print(("b", b_stim))
+        print(("failed", actual, expected))
 
-check_binary(lambda x, y:x+y, range(16), range(16))
-check_binary(lambda x, y:x-y, range(16), range(16))
-check_binary(lambda x, y:x*y, range(16), range(16))
-check_binary(lambda x, y:x|y, range(16), range(16))
-check_binary(lambda x, y:x&y, range(16), range(16))
-check_binary(lambda x, y:x^y, range(16), range(16))
-check_binary(lambda x, y:x<<y, range(16), range(3)+range(3)+range(3)+range(3)+range(4))
-check_binary(lambda x, y:x>>y, range(16), range(3)+range(3)+range(3)+range(3)+range(4))
-check_binary(lambda x, y:x==y, range(16), range(16))
-check_binary(lambda x, y:x!=y, range(16), range(16))
-check_binary(lambda x, y:x>y, range(16), range(16))
-check_binary(lambda x, y:x<y, range(16), range(16))
-check_binary(lambda x, y:x>=y, range(16), range(16))
-check_binary(lambda x, y:x<=y, range(16), range(16))
-check_binary(lambda x, y:~x, range(16), range(16))
-check_binary(lambda x, y:-x, range(16), range(16))
+check_binary(lambda x, y:x+y, list(range(16)), list(range(16)))
+check_binary(lambda x, y:x-y, list(range(16)), list(range(16)))
+check_binary(lambda x, y:x*y, list(range(16)), list(range(16)))
+check_binary(lambda x, y:x|y, list(range(16)), list(range(16)))
+check_binary(lambda x, y:x&y, list(range(16)), list(range(16)))
+check_binary(lambda x, y:x^y, list(range(16)), list(range(16)))
+check_binary(lambda x, y:x<<y, list(range(16)), list(range(3))+list(range(3))+list(range(3))+list(range(3))+list(range(4)))
+check_binary(lambda x, y:x>>y, list(range(16)), list(range(3))+list(range(3))+list(range(3))+list(range(3))+list(range(4)))
+check_binary(lambda x, y:x==y, list(range(16)), list(range(16)))
+check_binary(lambda x, y:x!=y, list(range(16)), list(range(16)))
+check_binary(lambda x, y:x>y, list(range(16)), list(range(16)))
+check_binary(lambda x, y:x<y, list(range(16)), list(range(16)))
+check_binary(lambda x, y:x>=y, list(range(16)), list(range(16)))
+check_binary(lambda x, y:x<=y, list(range(16)), list(range(16)))
+check_binary(lambda x, y:~x, list(range(16)), list(range(16)))
+check_binary(lambda x, y:-x, list(range(16)), list(range(16)))
 for i in range(4):
-    check_binary(lambda x, y:x[i], range(16), range(16))
+    check_binary(lambda x, y:x[i], list(range(16)), list(range(16)))
 for i in range(4):
     for j in range(i):
-        check_binary(lambda x, y:x[i:j], range(16), range(16))
-check_binary(lambda x, y:cat(x, y), range(16), range(16))
-check_binary(lambda x, y:x.subtype.rom(x, 15, 14, 13, 12, 10), range(16), range(16))
+        check_binary(lambda x, y:x[i:j], list(range(16)), list(range(16)))
+check_binary(lambda x, y:cat(x, y), list(range(16)), list(range(16)))
+check_binary(lambda x, y:x.subtype.rom(x, 15, 14, 13, 12, 10), list(range(16)), list(range(16)))
 
-check_binary(lambda x, y:x+y, range(16), range(16), True)
-check_binary(lambda x, y:x-y, range(16), range(16), True)
-check_binary(lambda x, y:x*y, range(16), range(16), True)
-check_binary(lambda x, y:x|y, range(16), range(16), True)
-check_binary(lambda x, y:x&y, range(16), range(16), True)
-check_binary(lambda x, y:x^y, range(16), range(16), True)
-check_binary(lambda x, y:x<<y, range(16), range(3)+range(3)+range(3)+range(3)+range(4), True)
-check_binary(lambda x, y:x>>y, range(16), range(3)+range(3)+range(3)+range(3)+range(4), True)
-check_binary(lambda x, y:x==y, range(16), range(16), True)
-check_binary(lambda x, y:x!=y, range(16), range(16), True)
-check_binary(lambda x, y:x>y, range(16), range(16), True)
-check_binary(lambda x, y:x<y, range(16), range(16), True)
-check_binary(lambda x, y:x>=y, range(16), range(16), True)
-check_binary(lambda x, y:x<=y, range(16), range(16), True)
-check_binary(lambda x, y:~x, range(16), range(16), True)
-check_binary(lambda x, y:-x, range(16), range(16), True)
+check_binary(lambda x, y:x+y, list(range(16)), list(range(16)), True)
+check_binary(lambda x, y:x-y, list(range(16)), list(range(16)), True)
+check_binary(lambda x, y:x*y, list(range(16)), list(range(16)), True)
+check_binary(lambda x, y:x|y, list(range(16)), list(range(16)), True)
+check_binary(lambda x, y:x&y, list(range(16)), list(range(16)), True)
+check_binary(lambda x, y:x^y, list(range(16)), list(range(16)), True)
+check_binary(lambda x, y:x<<y, list(range(16)), list(range(3))+list(range(3))+list(range(3))+list(range(3))+list(range(4)), True)
+check_binary(lambda x, y:x>>y, list(range(16)), list(range(3))+list(range(3))+list(range(3))+list(range(3))+list(range(4)), True)
+check_binary(lambda x, y:x==y, list(range(16)), list(range(16)), True)
+check_binary(lambda x, y:x!=y, list(range(16)), list(range(16)), True)
+check_binary(lambda x, y:x>y, list(range(16)), list(range(16)), True)
+check_binary(lambda x, y:x<y, list(range(16)), list(range(16)), True)
+check_binary(lambda x, y:x>=y, list(range(16)), list(range(16)), True)
+check_binary(lambda x, y:x<=y, list(range(16)), list(range(16)), True)
+check_binary(lambda x, y:~x, list(range(16)), list(range(16)), True)
+check_binary(lambda x, y:-x, list(range(16)), list(range(16)), True)
 for i in range(4):
-    check_binary(lambda x, y:x[i], range(16), range(16), True)
+    check_binary(lambda x, y:x[i], list(range(16)), list(range(16)), True)
 for i in range(4):
     for j in range(i):
-        check_binary(lambda x, y:x[i:j], range(16), range(16), True)
-check_binary(lambda x, y:cat(x, y), range(16), range(16), True)
-check_binary(lambda x, y:x.subtype.rom(x, 15, 14, 13, 12, 10), range(16), range(16), True)
+        check_binary(lambda x, y:x[i:j], list(range(16)), list(range(16)), True)
+check_binary(lambda x, y:cat(x, y), list(range(16)), list(range(16)), True)
+check_binary(lambda x, y:x.subtype.rom(x, 15, 14, 13, 12, 10), list(range(16)), list(range(16)), True)

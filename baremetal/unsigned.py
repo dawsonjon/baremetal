@@ -1,4 +1,4 @@
-import back_end
+from . import back_end
 from math import ceil, log
 
 def number_of_bits_needed(x):

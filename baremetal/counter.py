@@ -1,4 +1,4 @@
-from unsigned import number_of_bits_needed, Unsigned
+from .unsigned import number_of_bits_needed, Unsigned
 
 def counter(clk, start, stop, step, en=1):
     bits = max([number_of_bits_needed(start), number_of_bits_needed(stop)])

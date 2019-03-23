@@ -1,13 +1,13 @@
-from unsigned import Boolean
+from .unsigned import Boolean
 
 def make_FSM(clk, transition_table, default):
     registers = {}
-    for state, _ in transition_table.iteritems():
+    for state, _ in transition_table.items():
         registers[state] = Boolean().register(clk, init=int(state==default))
 
     decodes = {}
     decodes_string = {}
-    for state, transitions in transition_table.iteritems():
+    for state, transitions in transition_table.items():
 
         precondition = registers[state]
         for condition, next_state in transitions[:-1]:
@@ -23,12 +23,12 @@ def make_FSM(clk, transition_table, default):
         else:
             decodes[default_transition] = precondition
 
-    for state, logic in decodes.iteritems():
+    for state, logic in decodes.items():
         registers[state].d(logic)
 
     return registers, decodes
 
 def print_FSM(states):
-    for s, r in states.iteritems():
+    for s, r in states.items():
         if r.get():
             return s

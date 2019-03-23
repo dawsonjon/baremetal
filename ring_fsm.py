@@ -15,7 +15,7 @@ state, _ = make_FSM(clk, transition_table, "a")
 
 
 clk.initialise()
-print print_FSM(state)
+print(print_FSM(state))
 for i in range(100):
     clk.tick()
-    print print_FSM(state)
+    print(print_FSM(state))

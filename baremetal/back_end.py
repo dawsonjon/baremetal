@@ -4,7 +4,7 @@ enable_warnings = False
 
 def warning(message):
     if enable_warnings:
-        print message
+        print(message)
 
 def truncate(expression, bits):
     if expression is None:
@@ -126,7 +126,7 @@ class RAM:
     def __init__(self, bits, depth, clk, waddr, wdata, wen, raddr, ren=1, 
             asynchronous=True):
 
-        print asynchronous
+        print(asynchronous)
 
         clk.registers.append(self)
         self.asynchronous = asynchronous

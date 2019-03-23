@@ -16,10 +16,10 @@ z = mul(a, b)
 z = Unsigned(10).output("z", z)
 
 n = Netlist(name="test", clocks=[], inputs=[a, b], outputs=[z])
-print n.generate()
+print(n.generate())
 
 
 a.set(10)
 b.set(10)
-print z.get()
+print(z.get())
 

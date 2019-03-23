@@ -12,13 +12,13 @@ o = o.subtype.output("o", o)
 
 
 netlist = Netlist("counter", [clk], [], [o])
-print netlist.generate()
+print(netlist.generate())
 
 
 clk.initialise()
-print o
-print o.get()
+print(o)
+print(o.get())
 for i in range(100):
     clk.tick()
-    print o.get()
+    print(o.get())
 
