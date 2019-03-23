@@ -1,7 +1,7 @@
 from baremetal import *
 import baremetal.signed as signed
         
-class SFixed(signed.Signed):
+class SFixed:
 
     def __init__(self, bits, fraction_bits):
         self.signed = signed.Signed(bits)
@@ -51,7 +51,6 @@ def round_fraction_bits(x, new_lsb):
     else:
         rnd = Boolean().constant(0)
     roundup = guard & (rnd | odd)
-    print( x.subtype.bits)
     truncated = x[x.subtype.bits-1:new_lsb]
     return truncated.subtype.select(roundup, truncated, truncated + 1)
 
@@ -196,11 +195,12 @@ class Wire(Expression):
 class Register(Expression):
     def __init__(self, subtype, clk, en, init, d):
         self.subtype = subtype
-        self.signed = subtype.register(clk, en, init, d.signed)
+        d = None if d is None else d.signed
+        init = None if init is None else self.subtype.from_float(init)
+        self.signed = subtype.signed.register(clk, en, init, d)
 
     def d(self, expression):
         self.signed.d(expression.signed)
-        
 
 class Output(Expression):
     def __init__(self, subtype, name, expression):
