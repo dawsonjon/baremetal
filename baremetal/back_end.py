@@ -1,4 +1,5 @@
 from math import ceil, log
+from baremetal import exceptions
 
 enable_warnings = False
 
@@ -125,8 +126,6 @@ class Register:
 class RAM:
     def __init__(self, bits, depth, clk, waddr, wdata, wen, raddr, ren=1, 
             asynchronous=True):
-
-        print(asynchronous)
 
         clk.registers.append(self)
         self.asynchronous = asynchronous
@@ -350,7 +349,11 @@ def Index(a, b):
 class Slice:
     def __init__(self, a, msb, lsb):
         self.a = a
-        assert msb < a.bits
+        if msb >= a.bits:
+            error("%u is out of range [%u:0]"%(msb, a.bits-1))
+        if lsb > msb:
+            error("%u is greater than %u"%(msb, lsb))
+
         self.msb = int(msb)
         self.lsb = int(lsb)
         self.bits = self.msb - self.lsb + 1
@@ -376,6 +379,8 @@ class Resize:
     def __init__(self, a, bits, signed=False):
         self.a = a
         self.bits = int(bits)
+        if bits < 0:
+            error("Vector sizes of less than 0 are not supported")
         self.name = get_sn()
         self.signed = signed
 
@@ -459,6 +464,10 @@ class Concatenate:
         self.b.walk(netlist)
 
 def sign(x, bits):
+    if x == None:
+        return None
+    if int(bits) == 0:
+        return 0
     negative = x & (1<<(bits-1))
     mask = ~((1 << bits)-1)
     if negative:

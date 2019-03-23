@@ -1,6 +1,7 @@
 from . import back_end
 from .unsigned import Unsigned
 from . import unsigned
+from baremetal.exceptions import error
 
 
 def number_of_bits_needed(x):
@@ -32,6 +33,8 @@ class Signed:
     def from_vector(self, value):
         if value is None:
             return None
+        if self.bits == 0:
+            return 0
         negative = value & (1<<(self.bits-1))
         mask = ~((1 << self.bits)-1)
         if negative:
@@ -39,6 +42,8 @@ class Signed:
         return value
 
     def constant(self, value):
+        if number_of_bits_needed(value) > self.bits:
+            error("The value %u is too large for a %u bit signed number"%(value, self.bits))
         return Constant(self, value)
 
     def input(self, name):
