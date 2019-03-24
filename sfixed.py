@@ -3,10 +3,14 @@ import baremetal.signed as signed
         
 class SFixed:
 
-    def __init__(self, bits, fraction_bits):
+    def __init__(self, bits, fraction_bits, rounding_mode="nearest_even", 
+            clamp=True):
         self.signed = signed.Signed(bits)
+        self.bits = bits
         self.fraction_bits = fraction_bits
         self.q = 2**fraction_bits
+        self.rounding_mode = rounding_mode
+        self.clamp = clamp
 
     def as_float(self, x):
         return float(x)/self.q
@@ -41,7 +45,7 @@ class SFixed:
     def wire(self):
         return Wire(self)
 
-def round_fraction_bits(x, new_lsb):
+def fixed_round(x, new_lsb, rounding_mode, clamp):
     if new_lsb == 0:
         return x
     odd = x[new_lsb]
@@ -50,11 +54,27 @@ def round_fraction_bits(x, new_lsb):
         rnd = x[new_lsb-2:0]!=0
     else:
         rnd = Boolean().constant(0)
-    roundup = guard & (rnd | odd)
     truncated = x[x.subtype.bits-1:new_lsb]
+
+    if rounding_mode == "nearest_even":
+        roundup = guard & (rnd | odd) & (~clamp)
+        result = truncated.subtype.select(roundup, truncated, truncated + 1)
+    elif rounding_mode == "nearest_odd":
+        roundup = guard & (rnd | ~odd) & (~clamp)
+        truncated = x[x.subtype.bits-1:new_lsb]
+        result = truncated.subtype.select(roundup, truncated, truncated + 1)
+    elif rounding_mode == "simple":
+        roundup = guard & ~clamp
+        truncated = x[x.subtype.bits-1:new_lsb]
+        result = truncated.subtype.select(roundup, truncated, truncated + 1)
+    elif rounding_mode == "truncate":
+        result = truncated
+
     return truncated.subtype.select(roundup, truncated, truncated + 1)
 
 def mul(a, b):
+    rounding_mode = a.subtype.rounding_mode
+    clamp = a.subtype.clamp
     a_fbits = a.subtype.fraction_bits
     b_fbits = b.subtype.fraction_bits
     a_bits = a.subtype.signed.bits
@@ -72,12 +92,12 @@ def mul(a, b):
 
     if (a_ibits > b_ibits) | (a_ibits == b_ibits & a_bits > b_bits):
         if result_fbits > a_fbits:
-            result = round_fraction_bits(result, result_fbits-a_fbits)
+            result = fixed_round(result, result_fbits-a_fbits, rounding_mode, clamp)
         result = result.resize(a_bits)
         subtype = SFixed(a_bits, a_fbits)
     else:
         if result_fbits > b_fbits:
-            result = round_fraction_bits(result, result_fbits-b_fbits)
+            result = fixed_round(result, result_fbits-b_fbits, rounding_mode, clamp)
         result = result.resize(b_bits)
         subtype = SFixed(b_bits, b_fbits)
 
@@ -114,11 +134,11 @@ def addsub(a, b, sub=False):
 
     if (a_ibits > b_ibits) | (a_ibits == b_ibits & a_bits > b_bits):
         if result_fbits > a_fbits:
-            result = round_fraction_bits(result, result_fbits-a_fbits)
+            result = fixed_round(result, result_fbits-a_fbits)
         subtype = SFixed(a_bits, a_fbits)
     else:
         if result_fbits > b_fbits:
-            result = round_fraction_bits(result, result_fbits-b_fbits)
+            result = fixed_round(result, result_fbits-b_fbits)
         subtype = SFixed(b_bits, b_fbits)
 
     return Expression(subtype, result)
@@ -172,7 +192,10 @@ class Expression:
         self.signed = signed
 
     def get(self):
-        return self.subtype.as_float(self.signed.get())
+        value = self.signed.get()
+        if value is None:
+            return None
+        return self.subtype.as_float(value)
 
     def __add__(self, other): return addsub(self, other)
     def __sub__(self, other): return addsub(self, other, True)
@@ -183,6 +206,11 @@ class Expression:
     def __le__(self, other):  return compare(self, other, "<=")
     def __eq__(self, other):  return compare(self, other, "==")
     def __ne__(self, other):  return compare(self, other, "!=")
+    def __lshift__(self, other):  
+        return Expression(self.subtype, self.signed << other)
+    def __rshift__(self, other): 
+        return Expression(self.subtype, self.signed >> other)
+    def __neg__(self):        return Expression(self.subtype, -self.signed)
 
 class Wire(Expression):
     def __init__(self, subtype):
@@ -195,8 +223,8 @@ class Wire(Expression):
 class Register(Expression):
     def __init__(self, subtype, clk, en, init, d):
         self.subtype = subtype
-        d = None if d is None else d.signed
-        init = None if init is None else self.subtype.from_float(init)
+        d = None if (d is None) else d.signed
+        init = None if (init is None) else self.subtype.from_float(init)
         self.signed = subtype.signed.register(clk, en, init, d)
 
     def d(self, expression):

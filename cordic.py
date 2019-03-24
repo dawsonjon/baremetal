@@ -1,40 +1,51 @@
 from baremetal import *
 from sfixed import SFixed
-from math import atan, pi
+from math import atan, pi, sqrt
 
-def rectangular_to_polar(clk, i, q, iterations, phase_bits):
-    phaset = SFixed(phase_bits, phase_bits-1)
+#1.0 = +180
+#-1.0 = -180
+
+def rectangular_to_polar(clk, i, q, phase_fbits, scaled=True):
+    phaset = SFixed(phase_fbits+2, phase_fbits)
     t = i.subtype
 
-    ltz = q < 0
-    i = t.select(ltz, q, -q)
-    q = t.select(ltz, -i, i)
+    ltz = q < q.subtype.constant(0)
+    temp_i = t.select(ltz,  q, -q)
+    temp_q = t.select(ltz, -i,  i)
+    i, q = temp_i, temp_q
     phase = phaset.select(ltz, phaset.constant(0.5), phaset.constant(-0.5))
 
     i = i.subtype.register(clk, d=i)
     q = q.subtype.register(clk, d=q)
     phase = phase.subtype.register(clk, d=phase)
 
-    for idx in range(iterations):
-        d = 2**idx
-        angle = phaset.constant(atan(1/d)/pi)
-        ltz = q < 0
-        i = t.select(ltz, i+(q>>idx), i-(q>>idx))
-        q = t.select(ltz, q-(i>>idx), q+(i>>idx))
+    gain = 1.0
+    for idx in range(phase_fbits):
+        d = 2.0**idx
+        angle = phaset.constant(atan(1.0/d)/pi)
+        magnitude = sqrt(1+(1.0/d)*(1.0/d))
+        gain *= magnitude
+        ltz = q < q.subtype.constant(0)
+        temp_i = t.select(ltz, i+(q>>idx), i-(q>>idx))
+        temp_q = t.select(ltz, q-(i>>idx), q+(i>>idx))
+        i, q = temp_i, temp_q
         phase = phaset.select(ltz, phase+angle, phase-angle)
 
         i = i.subtype.register(clk, d=i)
         q = q.subtype.register(clk, d=q)
         phase = phase.subtype.register(clk, d=phase)
 
-    return phase
+    if scaled:
+        i *= SFixed(i.subtype.bits, i.subtype.bits-1).constant(1.0/gain)
 
-i = Signed(10).constant(100)
-q = Signed(10).constant(100)
+    return i, phase
 
+i = SFixed(17, 8).constant(00)
+q = SFixed(17, 8).constant(-100)
 clk = Clock("clk")
+magnitude, phase = rectangular_to_polar(clk, i, q, 20, 20)
+
 clk.initialise()
-for idx in range(10):
-    phase = rectangular_to_polar(clk, i, q, 5, 10)
+for idx in range(21):
     clk.tick()
-    print(phase.get())
+    print(magnitude.get(), phase.get())
