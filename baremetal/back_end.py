@@ -1,5 +1,6 @@
 from math import ceil, log
 from baremetal import exceptions
+from baremetal.exceptions import error
 
 enable_warnings = False
 

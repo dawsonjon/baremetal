@@ -55,22 +55,28 @@ def fixed_round(x, new_lsb, rounding_mode, clamp):
     else:
         rnd = Boolean().constant(0)
     truncated = x[x.subtype.bits-1:new_lsb]
+    rounded_down = truncated
+    rounded_up = truncated + 1
+    msb = rounded_up.subtype.bits - 1
+    overflow = (rounded_up[msb] ^ rounded_down[msb])
 
     if rounding_mode == "nearest_even":
-        roundup = guard & (rnd | odd) & (~clamp)
-        result = truncated.subtype.select(roundup, truncated, truncated + 1)
+        roundup = guard & (rnd | odd)
+        if clamp:
+            roundup = roundup & ~overflow
+        return truncated.subtype.select(roundup, truncated, rounded_up)
     elif rounding_mode == "nearest_odd":
-        roundup = guard & (rnd | ~odd) & (~clamp)
-        truncated = x[x.subtype.bits-1:new_lsb]
-        result = truncated.subtype.select(roundup, truncated, truncated + 1)
+        roundup = guard & (rnd | ~odd)
+        if clamp:
+            roundup = roundup & ~overflow
+        return truncated.subtype.select(roundup, truncated, rounded_up)
     elif rounding_mode == "simple":
-        roundup = guard & ~clamp
-        truncated = x[x.subtype.bits-1:new_lsb]
-        result = truncated.subtype.select(roundup, truncated, truncated + 1)
+        roundup = guard
+        if clamp:
+            roundup = roundup & ~overflow
+        return truncated.subtype.select(roundup, truncated, rouned_up)
     elif rounding_mode == "truncate":
-        result = truncated
-
-    return truncated.subtype.select(roundup, truncated, truncated + 1)
+        return truncated
 
 def mul(a, b):
     rounding_mode = a.subtype.rounding_mode
@@ -104,6 +110,8 @@ def mul(a, b):
     return Expression(subtype, result)
 
 def addsub(a, b, sub=False):
+    rounding_mode = a.subtype.rounding_mode
+    clamp = a.subtype.clamp
     a_fbits = a.subtype.fraction_bits
     b_fbits = b.subtype.fraction_bits
     a_bits = a.subtype.signed.bits
@@ -134,11 +142,11 @@ def addsub(a, b, sub=False):
 
     if (a_ibits > b_ibits) | (a_ibits == b_ibits & a_bits > b_bits):
         if result_fbits > a_fbits:
-            result = fixed_round(result, result_fbits-a_fbits)
+            result = fixed_round(result, result_fbits-a_fbits, rounding_mode, clamp)
         subtype = SFixed(a_bits, a_fbits)
     else:
         if result_fbits > b_fbits:
-            result = fixed_round(result, result_fbits-b_fbits)
+            result = fixed_round(result, result_fbits-b_fbits, rounding_mode, clamp)
         subtype = SFixed(b_bits, b_fbits)
 
     return Expression(subtype, result)
