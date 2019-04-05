@@ -22,7 +22,7 @@ class SFixed:
         return Expression(self, self.signed.constant(self.from_float(value)))
 
     def input(self, name):
-        return Expression(self, self.signed.input(name))
+        return Input(self, self.signed.input(name))
 
     def output(self, name, expression):
         return Output(self, name, expression)
@@ -38,6 +38,9 @@ class SFixed:
         if "default" in kwargs:
             kwargs["default"] = self.from_float(kwargs["default"])
         return Expression(self, self.signed.rom(select, *args, **kwargs))
+
+    def ram(self, *args, **kwargs):
+        return RAM(self, *args, **kwargs)
 
     def register(self, clk, en=1, init=None, d=None):
         return Register(self, clk, en, init, d)
@@ -238,12 +241,32 @@ class Register(Expression):
     def d(self, expression):
         self.signed.d(expression.signed)
 
+class Input(Expression):
+    def __init__(self, subtype, name):
+        self.subtype = subtype
+        self.signed = subtype.signed.input(name)
+        self.vector = self.signed.vector
+
+    def set(self, value):
+        return self.signed.set(self.subtype.from_float(value))
+
 class Output(Expression):
     def __init__(self, subtype, name, expression):
         self.subtype = subtype
-        self.signed = subtype.output(name, expression.signed)
-        self.vector = signed.vector
+        self.signed = subtype.signed.output(name, expression.signed)
+        self.vector = self.signed.vector
 
     def get(self):
         return self.subtype.asfloat(self.signed.get())
 
+class RAM:
+    def __init__(self, subtype, depth, clk, asynchronous=True):
+        self.subtype = subtype
+        self.ram = subtype.signed.ram(depth, clk, asynchronous)
+
+    def write(self, wraddr, wrdata, wren):
+        self.ram.write(wraddr, wrdata.signed, wren)
+
+    def read(self, rdaddr, rden=1):
+        signed = self.ram.read(rdaddr, rden)
+        return Expression(self.subtype, signed)

@@ -2,6 +2,7 @@ from . import back_end
 from .unsigned import Unsigned
 from . import unsigned
 from baremetal.exceptions import error
+from math import ceil, log
 
 
 def number_of_bits_needed(x):
@@ -63,6 +64,10 @@ class Signed:
 
     def wire(self):
         return Wire(self)
+
+    def ram(self, *args, **kwargs):
+        return RAM(self, *args, **kwargs)
+
 
 def binary(a, b, operator):
     string = "%s%s%s"%(a, operator, b)
@@ -217,9 +222,33 @@ class Wire(Expression):
         self.vector = back_end.Wire(bits=subtype.bits)
 
     def drive(self, expression):
-        if expression.bits != self.subtype.bits:
+        if expression.subtype.bits != self.subtype.bits:
             expression = back_end.Resize(expression, self.subtype.bits, True)
         self.vector.drive(expression.vector)
 
     def __repr__(self):
         return "wire"
+
+class RAM:
+    def __init__(self, subtype, depth, clk, asynchronous=True):
+        self.subtype = subtype
+        self.write_address = Unsigned(int(ceil(log(depth, 2)))).wire()
+        self.read_address = Unsigned(int(ceil(log(depth, 2)))).wire()
+        self.write_data = subtype.wire()
+        self.read_data = subtype.wire()
+        self.write_enable = Unsigned(1).wire()
+        self.read_enable = Unsigned(1).wire()
+        self.ram = back_end.RAM(subtype.bits, depth, clk, 
+                self.write_address.vector, self.write_data.vector, 
+                self.write_enable.vector, self.read_address.vector, 
+                self.read_enable.vector, asynchronous=asynchronous)
+
+    def write(self, wraddr, wrdata, wren):
+        self.write_address.drive(wraddr)
+        self.write_data.drive(wrdata)
+        self.write_enable.drive(wren)
+
+    def read(self, rdaddr, rden=1):
+        self.read_address.drive(rdaddr)
+        self.read_enable.drive(const(rden))
+        return Expression(self.subtype, self.ram, "ram()")

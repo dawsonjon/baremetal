@@ -136,6 +136,7 @@ class RAM:
         self.raddr = raddr
         self.ren = ren
         self.ram = [None for i in range(depth)]
+        print(depth)
         self.value = None
 
         self.bits=int(bits)
