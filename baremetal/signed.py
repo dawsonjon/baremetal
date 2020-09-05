@@ -235,8 +235,34 @@ class Wire(Expression):
     def __repr__(self):
         return "wire"
 
+class RAMPort:
+    def __init__(self, ram, clk):
+
+        self.subtype = ram.subtype
+        self.write_address = Unsigned(int(ceil(log(ram.ram.depth, 2)))).wire()
+        self.read_address = Unsigned(int(ceil(log(ram.ram.depth, 2)))).wire()
+        self.write_data = ram.subtype.wire()
+        self.read_data = ram.subtype.wire()
+        self.write_enable = Unsigned(1).wire()
+        self.read_enable = Unsigned(1).wire()
+
+        self.ram = back_end.RAMPort(ram.ram, clk,
+                self.write_address.vector, self.write_data.vector, 
+                self.write_enable.vector, self.read_address.vector, 
+                self.read_enable.vector)
+
+    def write(self, wraddr, wrdata, wren):
+        self.write_address.drive(wraddr)
+        self.write_data.drive(wrdata)
+        self.write_enable.drive(wren)
+
+    def read(self, rdaddr, rden=1):
+        self.read_address.drive(rdaddr)
+        self.read_enable.drive(const(rden))
+        return Expression(self.subtype, self.ram, "ramport()")
+
 class RAM:
-    def __init__(self, subtype, depth, clk, asynchronous=True):
+    def __init__(self, subtype, depth, clk, asynchronous=True, initialise=None):
         self.subtype = subtype
         self.write_address = Unsigned(int(ceil(log(depth, 2)))).wire()
         self.read_address = Unsigned(int(ceil(log(depth, 2)))).wire()
@@ -247,7 +273,11 @@ class RAM:
         self.ram = back_end.RAM(subtype.bits, depth, clk, 
                 self.write_address.vector, self.write_data.vector, 
                 self.write_enable.vector, self.read_address.vector, 
-                self.read_enable.vector, asynchronous=asynchronous)
+                self.read_enable.vector, asynchronous=asynchronous,
+                initialise=initialise)
+
+    def add_port(self, clk):
+        return RAMPort(self, clk)
 
     def write(self, wraddr, wrdata, wren):
         self.write_address.drive(wraddr)
