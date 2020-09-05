@@ -72,6 +72,12 @@ class Expression:
         self.vector = vector
         self.string = string
 
+    def label(self, label_string):
+        a = self
+        vector = back_end.Label(self.vector, label_string)
+        subtype = Unsigned(vector.bits)
+        return Expression(subtype, vector, "%s.label(%s)"%(repr(a), str(label_string)))
+
     def cat(self, other):
         a = self
         b = const(other)
@@ -149,9 +155,7 @@ class Select(Expression):
         default = const(kwargs.get("default", 0)).vector
         self.vector = back_end.Select(select, *args, default=default)
         self.subtype = Unsigned(self.vector.bits)
-
-    def __repr__(self):
-        return "select(%s)"%self.select
+        self.string = "select()"
 
 class ROM(Expression):
     def __init__(self, subtype, select, *args, **kwargs):

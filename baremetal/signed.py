@@ -115,6 +115,12 @@ class Expression:
         subtype = Signed(binary.bits)
         return Expression(subtype, binary, "%s.cat(%s)"%(repr(self), repr(other)))
 
+    def label(self, label_string):
+        a = self
+        vector = back_end.Label(self.vector, label_string)
+        subtype = Signed(vector.bits)
+        return Expression(subtype, vector, "%s.label(%s)"%(repr(a), str(label_string)))
+
     def resize(self, bits):
         vector = back_end.Resize(self.vector, bits, signed=True)
         subtype = Signed(vector.bits)
@@ -213,7 +219,7 @@ class Register(Expression):
     def d(self, expression):
         expression = const(expression)
         if expression.vector.bits != self.subtype.bits:
-            expression = back_end.Resize(expression, self.subtype.bits, True)
+            expression = expression.resize(self.subtype.bits)
         self.vector.d = expression.vector
 
 class Wire(Expression):
@@ -223,7 +229,7 @@ class Wire(Expression):
 
     def drive(self, expression):
         if expression.subtype.bits != self.subtype.bits:
-            expression = back_end.Resize(expression, self.subtype.bits, True)
+            expression = expression.resize(self.subtype.bits)
         self.vector.drive(expression.vector)
 
     def __repr__(self):

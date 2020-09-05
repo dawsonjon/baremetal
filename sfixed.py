@@ -1,6 +1,6 @@
 from baremetal import *
 import baremetal.signed as signed
-        
+
 class SFixed:
 
     def __init__(self, bits, fraction_bits, rounding_mode="nearest_even", 

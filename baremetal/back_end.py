@@ -113,16 +113,28 @@ class Register:
         self.en.walk(netlist)
 
     def generate(self):
-        return """
-  reg [%s:0] %s_reg;
-  always@(posedge %s) begin
-    if (%s) begin
-      %s_reg <= %s;
-    end
-  end
-  assign %s = %s_reg;
-"""%(self.bits-1, self.name, self.clock.name, self.en.name, self.name, 
-        self.d.name, self.name, self.name)
+        if self.init is not None:
+            return """
+      reg [%s:0] %s_reg = %s;
+      always@(posedge %s) begin
+        if (%s) begin
+          %s_reg <= %s;
+        end
+      end
+      assign %s = %s_reg;
+    """%(self.bits-1, self.name, self.init, self.clock.name, self.en.name, self.name, 
+            self.d.name, self.name, self.name)
+        else:
+            return """
+      reg [%s:0] %s_reg;
+      always@(posedge %s) begin
+        if (%s) begin
+          %s_reg <= %s;
+        end
+      end
+      assign %s = %s_reg;
+    """%(self.bits-1, self.name, self.clock.name, self.en.name, self.name, 
+            self.d.name, self.name, self.name)
 
 class RAM:
     def __init__(self, bits, depth, clk, waddr, wdata, wen, raddr, ren=1, 
@@ -136,7 +148,6 @@ class RAM:
         self.raddr = raddr
         self.ren = ren
         self.ram = [None for i in range(depth)]
-        print(depth)
         self.value = None
 
         self.bits=int(bits)
@@ -216,7 +227,7 @@ class RAM:
 """%(
             self.bits-1,
             self.name,
-            int(ceil(log(self.depth, 2)))-1,
+            int(self.depth)-1,
             self.wen.name,
             self.name,
             self.waddr.name,
@@ -358,7 +369,7 @@ class Slice:
 
         self.msb = int(msb)
         self.lsb = int(lsb)
-        self.bits = self.msb - self.lsb + 1
+        self.bits = (self.msb - self.lsb) + 1
         self.name = get_sn()
 
     def get(self):
@@ -406,6 +417,29 @@ class Resize:
             return "  assign %s = $signed(%s);\n"%(self.name, self.a.name)
         else:
             return "  assign %s = %s;\n"%(self.name, self.a.name)
+
+class Label:
+    def __init__(self, a, label):
+        self.a = a
+        self.bits = self.a.bits
+        self.name = get_sn()
+        self.label = label
+
+    def get(self):
+        return self.a.get()
+
+    def generate(self):
+        return """
+        wire [%s:0] %s;
+        assign %s = %s;
+        assign %s = %s;"""%(
+        self.bits-1, self.label, self.name, self.label, self.label, self.a.name)
+
+    def walk(self, netlist):
+        if id(self) in [id(i) for i in netlist.expressions]:
+            return
+        netlist.expressions.append(self)
+        self.a.walk(netlist)
 
 class Unary:
     def __init__(self, a, operation):
@@ -549,6 +583,7 @@ class Binary:
         self.func = func_lookup[operation]
         self.vstring = vstring_lookup[operation]
         self.name = get_sn()
+        self.operation = operation
 
     def get(self):
         a = self.a.get()
