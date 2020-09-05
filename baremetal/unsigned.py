@@ -2,6 +2,7 @@ from . import back_end
 from math import ceil, log
 
 def number_of_bits_needed(x):
+    x = int(x)
     n=1
     while 1:
         max_value = (2**n)-1
