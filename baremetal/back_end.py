@@ -293,7 +293,9 @@ class RAM:
         if self.initial_values is None:
             self.ram = [None for i in range(self.depth)]
         else:
-            self.ram = copy(self.initial_values)
+            self.ram = [0 for i in range(self.depth)]
+            for i, v in enumerate(self.initial_values):
+                self.ram[i] = v
         self.value = None
 
     def evaluate(self):

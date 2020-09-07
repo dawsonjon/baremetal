@@ -90,4 +90,4 @@ i, q = polar_to_rectangular(clk, magnitude, phase)
 clk.initialise()
 for idx in range(100):
     clk.tick()
-    print(magnitude.get(), phase.get(), i.get(), q.get())
+    print((magnitude.get(), phase.get(), i.get(), q.get()))

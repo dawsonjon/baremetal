@@ -13,7 +13,7 @@ hours, minutes, seconds = rtc(clk)
 
 clk.initialise()
 for i in range(100):
-    print(hours.get(), minutes.get(), seconds.get())
+    print((hours.get(), minutes.get(), seconds.get()))
     clk.tick()
 
 

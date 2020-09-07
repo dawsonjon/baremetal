@@ -44,7 +44,7 @@ def reorder(clk, s0, s1, valid, n):
     return s0, s1, valid
 
 def fft(clk, s0, s1, valid, num_stages):
-    for stage in reversed(range(num_stages)):
+    for stage in reversed(list(range(num_stages))):
         m = 2**stage
 
         #generate constants
@@ -88,9 +88,9 @@ clk.initialise()
 for i in range(10):
     for i in range(4):
         a.set(test[i]), b.set(test[i+4]), valid.set(1)
-        print("%10s %10s %10s"%(s0.get(), s1.get(), valid_out.get()))
+        print(("%10s %10s %10s"%(s0.get(), s1.get(), valid_out.get())))
         clk.tick()
     valid.set(0)
-    print("%10s %10s %10s"%(s0.get(), s1.get(), valid_out.get()))
+    print(("%10s %10s %10s"%(s0.get(), s1.get(), valid_out.get())))
     clk.tick()
 

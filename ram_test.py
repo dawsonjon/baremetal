@@ -23,7 +23,7 @@ for subtype in [Unsigned(4), Signed(5)]:
         rdaddr.set(i)
         clk.tick()
         assert(rddata.get() == next(expected))
-    print "test1a ... pass"
+    print("test1a ... pass")
 
 #fill ram
     for i in range(16):
@@ -34,13 +34,13 @@ for subtype in [Unsigned(4), Signed(5)]:
     wren.set(0)
 
 #read ram
-    expected = iter(reversed(range(16)))
+    expected = iter(reversed(list(range(16))))
     for i in range(16):
         rdaddr.set(i)
         clk.tick()
         assert(rddata.get() == next(expected))
 
-    print "test1b ... pass"
+    print("test1b ... pass")
 
 #fill ram again
     for i in range(16):
@@ -51,13 +51,13 @@ for subtype in [Unsigned(4), Signed(5)]:
     wren.set(0)
 
 #read ram
-    expected = iter(range(16))
+    expected = iter(list(range(16)))
     for i in range(16):
         rdaddr.set(i)
         clk.tick()
         assert(rddata.get() == next(expected))
 
-    print "test1c ... pass"
+    print("test1c ... pass")
 
 #n = Netlist("dut", [clk], [wraddr, wrdata, wren, rdaddr], [rddata])
 #print(n.generate())
@@ -100,7 +100,7 @@ for subtype in [Unsigned(4), Signed(5)]:
         rdaddr.set(i)
         clk.tick()
         assert(rddata.get() == next(expected))
-    print "test2a ... pass"
+    print("test2a ... pass")
 
     for i in range(16):
         wraddr.set(i)
@@ -109,19 +109,19 @@ for subtype in [Unsigned(4), Signed(5)]:
         clk.tick()
     wren.set(0)
 
-    expected = iter(reversed(range(16)))
+    expected = iter(reversed(list(range(16))))
     for i in range(16):
         rdaddr.set(i)
         clk.tick()
         assert(rddata.get() == next(expected))
-    print "test2b ... pass"
+    print("test2b ... pass")
 
-    expected = iter(reversed(range(16)))
+    expected = iter(reversed(list(range(16))))
     for i in range(16):
         rdaddr2.set(i)
         clk.tick()
         assert(rddata2.get() == next(expected))
-    print "test2c ... pass"
+    print("test2c ... pass")
 
     wren2.set(0)
     for i in range(16):
@@ -131,19 +131,19 @@ for subtype in [Unsigned(4), Signed(5)]:
         clk.tick()
     wren2.set(0)
 
-    expected = iter(range(16))
+    expected = iter(list(range(16)))
     for i in range(16):
         rdaddr.set(i)
         clk.tick()
         assert(rddata.get() == next(expected))
-    print "test2d ... pass"
+    print("test2d ... pass")
 
-    expected = iter(range(16))
+    expected = iter(list(range(16)))
     for i in range(16):
         rdaddr2.set(i)
         clk.tick()
         assert(rddata2.get() == next(expected))
-    print "test2e ... pass"
+    print("test2e ... pass")
 
 #n = Netlist("dut", [clk], [wraddr, wrdata, wren, rdaddr], [rddata])
 #print(n.generate())

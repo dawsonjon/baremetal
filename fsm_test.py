@@ -25,8 +25,8 @@ if __name__ == "__main__":
 
 
     clk.initialise()
-    print(state["off"].get(), state["on"].get())
+    print((state["off"].get(), state["on"].get()))
     for stim in stimulus:
         [i.set(v) for i, v in zip(inputs, stim)]
         clk.tick()
-        print(stim[0], stim[1], print_FSM(state))
+        print((stim[0], stim[1], print_FSM(state)))
