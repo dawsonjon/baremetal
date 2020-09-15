@@ -1,3 +1,5 @@
+![build status](https://travis-ci.org/dawsonjon/baremetal.svg?branch=master)
+
 # Baremetal - A simple python utility to describe and simulate hardware in Python
 
 As its name suggests, the baremetal library is intended for circuit design at
@@ -23,6 +25,8 @@ the code is very much biased towards FPGAs.
 
 install:
 
+```
 	git clone https://github.com/dawsonjon/baremetal.git
 	cd baremetal
 	sudo python3 setup.py install
+```
