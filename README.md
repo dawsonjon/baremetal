@@ -1,6 +1,6 @@
 ![build status](https://travis-ci.org/dawsonjon/baremetal.svg?branch=master)
 
-# Baremetal - A simple python utility to describe and simulate hardware in Python
+# Baremetal - A simple Python utility to build and simulate hardware
 
 As its name suggests, the baremetal library is intended for circuit design at
 a low level of abstraction - think gates and flip-flops. The library was
