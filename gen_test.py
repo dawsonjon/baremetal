@@ -137,6 +137,7 @@ def check_binary(func_to_test, a_stim, b_stim, signed=False):
         print(("a", a_stim))
         print(("b", b_stim))
         print(("failed", actual, expected))
+        sys.exit(1)
 
 check_binary(lambda x, y:x+y, list(range(16)), list(range(16)))
 check_binary(lambda x, y:x-y, list(range(16)), list(range(16)))

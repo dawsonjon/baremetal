@@ -1,0 +1,23 @@
+#!/usr/bin/env python3
+
+import subprocess
+import sys
+
+result = subprocess.call("python3 gen_test.py", shell=True)
+if result != 0:
+    print("All Tests fail")
+    sys.exit(1)
+
+result = subprocess.call("python3 sim_test.py", shell=True)
+if result != 0:
+    print("All Tests fail")
+    sys.exit(1)
+
+result = subprocess.call("python3 ram_test.py", shell=True)
+if result != 0:
+    print("All Tests fail")
+    sys.exit(1)
+
+print("All Tests Pass")
+sys.exit(1)
+

@@ -244,3 +244,4 @@ for i in range(-4, 4):
 #cat
 for i in range(-4, 4):
     assert Unsigned(3).constant(i).cat(Unsigned(1).constant(0)).get() == i*2&15
+
