@@ -1,5 +1,6 @@
 from baremetal import *
 
+
 def counter(clk):
    subtype = Unsigned(4) 
    count = subtype.register(clk, init=0)
@@ -21,4 +22,3 @@ print((o.get()))
 for i in range(100):
     clk.tick()
     print((o.get()))
-

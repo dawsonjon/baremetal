@@ -3,4 +3,3 @@ def cat(*args):
     for arg in args[1:]:
         result = result.cat(arg)
     return result
-

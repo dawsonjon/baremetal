@@ -1,7 +1,9 @@
-from baremetal import *
-from sfixed import SFixed
-from complex import Complex
 from cmath import exp, pi
+
+from baremetal import *
+
+from complex import Complex
+from sfixed import SFixed
 
 t = Complex(SFixed(16, 8))
 
@@ -16,4 +18,3 @@ clk.initialise()
 for i in range(10):
     print((r.get()))
     clk.tick()
-

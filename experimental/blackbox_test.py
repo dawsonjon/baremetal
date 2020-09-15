@@ -1,6 +1,7 @@
 from baremetal import *
 from baremetal.back_end import blackbox
 
+
 def mul(a, b):
     z = a*b
 
@@ -22,4 +23,3 @@ print((n.generate()))
 a.set(10)
 b.set(10)
 print((z.get()))
-

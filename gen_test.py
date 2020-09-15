@@ -1,11 +1,12 @@
 """This is a simple tool to demonstrate that the simulation results match
 the results in a verilog sim of the generated code"""
 
-import subprocess
 import os
+import subprocess
 
 from baremetal import *
 from baremetal.back_end import sign
+
 
 def test(self, stimulus, latency):
     """A function that generates a testbench for the generated logic."""

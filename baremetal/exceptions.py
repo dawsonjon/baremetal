@@ -1,5 +1,6 @@
 class BaremetalException(Exception):
-        pass
+    pass
+
 
 def error(message):
     raise BaremetalException(message)

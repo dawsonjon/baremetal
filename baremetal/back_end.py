@@ -1,25 +1,30 @@
 from math import ceil, log
-from baremetal import exceptions
+
 from baremetal.exceptions import error
-from copy import copy
 
 enable_warnings = False
+
 
 def warning(message):
     if enable_warnings:
         print(message)
 
+
 def truncate(expression, bits):
     if expression is None:
         return None
-    return expression & ((1<<bits) - 1)
+    return expression & ((1 << bits) - 1)
+
 
 sn = 0
+
+
 def get_sn():
     global sn
     x = sn
     sn += 1
     return "exp_" + str(sn)
+
 
 class Input:
     def __init__(self, name, bits):
@@ -41,6 +46,7 @@ class Input:
     def generate(self):
         return ""
 
+
 class Constant:
     def __init__(self, value, bits):
         self.value = value
@@ -56,17 +62,21 @@ class Constant:
         netlist.expressions.append(self)
 
     def generate(self):
-        return "  assign %s = %s;\n"%(self.name, self.value)
+        return "  assign %s = %s;\n" % (self.name, self.value)
+
 
 class Wire:
-    def __init__(self, bits):
+    def __init__(self, filename, lineno, bits):
         self.d = None
         self.bits = bits
         self.name = get_sn()
+        self.filename = filename
+        self.lineno = lineno
 
     def get(self):
         if self.d is None:
-            error("Wire is not driven")
+            error("Wire is not driven in %s, line %s" %
+                  (self.filename, self.lineno))
         return truncate(self.d.get(), self.bits)
 
     def walk(self, netlist):
@@ -79,7 +89,8 @@ class Wire:
         self.d = expression
 
     def generate(self):
-        return "  assign %s = %s;\n"%(self.name, self.d.name)
+        return "  assign %s = %s;\n" % (self.name, self.d.name)
+
 
 class Register:
 
@@ -125,8 +136,8 @@ class Register:
         end
       end
       assign %s = %s_reg;
-    """%(self.bits-1, self.name, self.init, self.clock.name, self.en.name, self.name, 
-            self.d.name, self.name, self.name)
+    """ % (self.bits - 1, self.name, self.init, self.clock.name, self.en.name,
+                self.name, self.d.name, self.name, self.name)
         else:
             return """
       reg [%s:0] %s_reg;
@@ -136,12 +147,13 @@ class Register:
         end
       end
       assign %s = %s_reg;
-    """%(self.bits-1, self.name, self.clock.name, self.en.name, self.name, 
-            self.d.name, self.name, self.name)
+    """ % (self.bits - 1, self.name, self.clock.name, self.en.name, self.name,
+                self.d.name, self.name, self.name)
+
 
 class RAMPort:
-    def __init__(self, ram, clk, waddr, wdata, wen, raddr, ren=1, 
-            asynchronous=True):
+    def __init__(self, ram, clk, waddr, wdata, wen, raddr, ren=1,
+                 asynchronous=True):
 
         clk.registers.append(self)
         self.asynchronous = asynchronous
@@ -154,8 +166,8 @@ class RAMPort:
         self.value = None
         ram.ports.append(self)
 
-        self.bits=int(ram.bits)
-        self.depth=int(ram.depth)
+        self.bits = int(ram.bits)
+        self.depth = int(ram.depth)
         self.name = get_sn()
 
     def initialise(self):
@@ -170,19 +182,19 @@ class RAMPort:
 
     def update(self):
 
-        #write to the RAM if enabled
+        # write to the RAM if enabled
         if self.do_write:
             if self.address_to_write is None:
                 self.ram.ram = [None for i in range(self.depth)]
             else:
-                self.ram.ram[self.address_to_write]=self.data_to_write
+                self.ram.ram[self.address_to_write] = self.data_to_write
 
-        #if enable is None, we may have corrupted some or all RAM
+        # if enable is None, we may have corrupted some or all RAM
         if self.do_write is None:
             if self.address_to_write is None:
                 self.ram.ram = [None for i in range(self.depth)]
             else:
-                self.ram.ram[self.address_to_write]=None
+                self.ram.ram[self.address_to_write] = None
 
         if not self.asynchronous:
             if self.do_read is None:
@@ -191,8 +203,9 @@ class RAMPort:
                 if self.address_to_read is None:
                     return None
                 if self.address_to_read >= self.depth:
-                    warning("RAM address out of range") 
-                self.value = truncate(self.ram.ram[self.address_to_read], self.bits)
+                    warning("RAM address out of range")
+                self.value = truncate(
+                    self.ram.ram[self.address_to_read], self.bits)
 
     def get(self):
 
@@ -201,10 +214,10 @@ class RAMPort:
             if idx is None:
                 return None
             if idx >= self.depth:
-                warning("RAM address out of range") 
+                warning("RAM address out of range")
             return truncate(self.ram.ram[idx], self.bits)
         else:
-            return self.value 
+            return self.value
 
     def walk(self, netlist):
         if id(self) in [id(i) for i in netlist.expressions]:
@@ -228,15 +241,15 @@ class RAMPort:
     end
   end
   assign %s = %s_ram[%s];
-"""%(
-            self.wen.name,
-            self.ram.name,
-            self.waddr.name,
-            self.wdata.name,
-            self.name,
-            self.ram.name,
-            self.raddr.name,
-)
+""" % (
+                self.wen.name,
+                self.ram.name,
+                self.waddr.name,
+                self.wdata.name,
+                self.name,
+                self.ram.name,
+                self.raddr.name,
+            )
         else:
             return """
   //Additional RAM port (synchronous)
@@ -251,24 +264,25 @@ class RAMPort:
     end
   end
   assign %s = %s_reg;
-"""%(
-            self.bits-1, 
-            self.name,
-            self.ren.name,
-            self.name,
-            self.ram.name,
-            self.raddr.name,
-            self.wen.name,
-            self.ram.name,
-            self.waddr.name,
-            self.wdata.name,
-            self.name,
-            self.name
-    )
+""" % (
+                self.bits - 1,
+                self.name,
+                self.ren.name,
+                self.name,
+                self.ram.name,
+                self.raddr.name,
+                self.wen.name,
+                self.ram.name,
+                self.waddr.name,
+                self.wdata.name,
+                self.name,
+                self.name
+            )
+
 
 class RAM:
-    def __init__(self, bits, depth, clk, waddr, wdata, wen, raddr, ren=1, 
-            asynchronous=True, initialise=None):
+    def __init__(self, bits, depth, clk, waddr, wdata, wen, raddr, ren=1,
+                 asynchronous=True, initialise=None):
 
         clk.registers.append(self)
         self.ports = []
@@ -281,11 +295,12 @@ class RAM:
         self.ram = [None for i in range(depth)]
         self.value = None
 
-        self.bits=int(bits)
-        self.depth=int(depth)
+        self.bits = int(bits)
+        self.depth = int(depth)
         self.name = get_sn()
         if initialise is not None:
-            self.initial_values=[truncate(int(i), self.depth) for i in initialise]
+            self.initial_values = [
+                truncate(int(i), self.depth) for i in initialise]
         else:
             self.initial_values = None
 
@@ -307,19 +322,19 @@ class RAM:
 
     def update(self):
 
-        #write to the RAM if enabled
+        # write to the RAM if enabled
         if self.do_write:
             if self.address_to_write is None:
                 self.ram = [None for i in range(self.depth)]
             else:
-                self.ram[self.address_to_write]=self.data_to_write
+                self.ram[self.address_to_write] = self.data_to_write
 
-        #if enable is None, we may have corrupted some or all RAM
+        # if enable is None, we may have corrupted some or all RAM
         if self.do_write is None:
             if self.address_to_write is None:
                 self.ram = [None for i in range(self.depth)]
             else:
-                self.ram[self.address_to_write]=None
+                self.ram[self.address_to_write] = None
 
         if not self.asynchronous:
             if self.do_read is None:
@@ -328,8 +343,9 @@ class RAM:
                 if self.address_to_read is None:
                     return None
                 if self.address_to_read >= self.depth:
-                    warning("RAM address out of range") 
-                self.value = truncate(self.ram[self.address_to_read], self.bits)
+                    warning("RAM address out of range")
+                self.value = truncate(
+                    self.ram[self.address_to_read], self.bits)
 
     def get(self):
 
@@ -338,10 +354,10 @@ class RAM:
             if idx is None:
                 return None
             if idx >= self.depth:
-                warning("RAM address out of range") 
+                warning("RAM address out of range")
             return truncate(self.ram[idx], self.bits)
         else:
-            return self.value 
+            return self.value
 
     def walk(self, netlist):
         if id(self) in [id(i) for i in netlist.expressions]:
@@ -359,8 +375,9 @@ class RAM:
         if self.initial_values is None:
             init_string = ""
         else:
-            init_string = "\n".join(["    %s_ram[%s] = %s;"%(self.name, i, n) 
-                for i, n in enumerate(self.initial_values[:self.depth])])
+            init_string = "\n".join(
+                ["    %s_ram[%s] = %s;" % (self.name, i, n)
+                 for i, n in enumerate(self.initial_values[:self.depth])])
             init_string = """
 
   //Initialise RAM contents
@@ -368,8 +385,7 @@ class RAM:
   begin
 %s
   end
-"""%init_string
-
+""" % init_string
 
         if self.asynchronous:
             return """
@@ -383,19 +399,19 @@ class RAM:
     end
   end
   assign %s = %s_ram[%s];
-"""%(
-            self.bits-1,
-            self.name,
-            int(self.depth)-1,
-            init_string,
-            self.wen.name,
-            self.name,
-            self.waddr.name,
-            self.wdata.name,
-            self.name,
-            self.name,
-            self.raddr.name,
-)
+""" % (
+                self.bits - 1,
+                self.name,
+                int(self.depth) - 1,
+                init_string,
+                self.wen.name,
+                self.name,
+                self.waddr.name,
+                self.wdata.name,
+                self.name,
+                self.name,
+                self.raddr.name,
+            )
         else:
             return """
   //Create RAM (Synchronous)
@@ -412,30 +428,31 @@ class RAM:
     end
   end
   assign %s = %s_reg;
-"""%(
-            self.bits-1,
-            self.name,
-            int(ceil(log(self.depth, 2)))-1,
-            init_string,
-            self.bits-1, 
-            self.name,
-            self.ren.name,
-            self.name,
-            self.name,
-            self.raddr.name,
-            self.wen.name,
-            self.name,
-            self.waddr.name,
-            self.wdata.name,
-            self.name,
-            self.name
-    )
+""" % (
+                self.bits - 1,
+                self.name,
+                int(ceil(log(self.depth, 2))) - 1,
+                init_string,
+                self.bits - 1,
+                self.name,
+                self.ren.name,
+                self.name,
+                self.name,
+                self.raddr.name,
+                self.wen.name,
+                self.name,
+                self.waddr.name,
+                self.wdata.name,
+                self.name,
+                self.name
+            )
+
 
 class ROM:
     def __init__(self, bits, select, *args, **kwargs):
-        self.select=select
-        self.args=[int(i) for i in args]
-        self.default=int(kwargs.get("default", 0))
+        self.select = select
+        self.args = [int(i) for i in args]
+        self.default = int(kwargs.get("default", 0))
         self.bits = bits
         self.name = get_sn()
 
@@ -454,9 +471,11 @@ class ROM:
         self.select.walk(netlist)
 
     def generate(self):
-        select_string = "\n".join(["      %s:%s_reg <= %s;"%(i, self.name, n) for i, n in enumerate(self.args)])
-        default_string = "\n      default:%s_reg <= %s;"%(self.name, self.default)
-    
+        select_string = "\n".join(["      %s:%s_reg <= %s;" % (
+            i, self.name, n) for i, n in enumerate(self.args)])
+        default_string = "\n      default:%s_reg <= %s;" % (
+            self.name, self.default)
+
         return """
   reg [%s:0] %s_reg;
   always@(*) begin
@@ -465,21 +484,22 @@ class ROM:
     endcase
   end
   assign %s = %s_reg;
-"""%(
-        self.bits-1,
-        self.name,
-        self.select.name, 
-        select_string+default_string,
-        self.name,
-        self.name
-)
+""" % (
+            self.bits - 1,
+            self.name,
+            self.select.name,
+            select_string + default_string,
+            self.name,
+            self.name
+        )
+
 
 class Select:
     def __init__(self, select, *args, **kwargs):
-        self.select=select
-        self.args=args
-        self.default=kwargs.get("default", 0)
-        self.bits=max([i.bits for i in self.args+(self.default,)])
+        self.select = select
+        self.args = args
+        self.default = kwargs.get("default", 0)
+        self.bits = max([i.bits for i in self.args + (self.default,)])
         self.name = get_sn()
 
     def get(self):
@@ -500,9 +520,11 @@ class Select:
             i.walk(netlist)
 
     def generate(self):
-        select_string = "\n".join(["      %s:%s_reg <= %s;"%(i, self.name, n.name) for i, n in enumerate(self.args)])
-        default_string = "\n      default:%s_reg <= %s;"%(self.name, self.default.name)
-    
+        select_string = "\n".join(["      %s:%s_reg <= %s;" % (
+            i, self.name, n.name) for i, n in enumerate(self.args)])
+        default_string = "\n      default:%s_reg <= %s;" % (
+            self.name, self.default.name)
+
         return """
   reg [%s:0] %s_reg;
   always@(*) begin
@@ -511,25 +533,27 @@ class Select:
     endcase
   end
   assign %s = %s_reg;
-"""%(
-        self.bits-1,
-        self.name,
-        self.select.name, 
-        select_string+default_string,
-        self.name,
-        self.name
-)
+""" % (
+            self.bits - 1,
+            self.name,
+            self.select.name,
+            select_string + default_string,
+            self.name,
+            self.name
+        )
+
 
 def Index(a, b):
     return Slice(a, b, b)
+
 
 class Slice:
     def __init__(self, a, msb, lsb):
         self.a = a
         if msb >= a.bits:
-            error("%u is out of range [%u:0]"%(msb, a.bits-1))
+            error("%u is out of range [%u:0]" % (msb, a.bits - 1))
         if lsb > msb:
-            error("%u is greater than %u"%(msb, lsb))
+            error("%u is greater than %u" % (msb, lsb))
 
         self.msb = int(msb)
         self.lsb = int(lsb)
@@ -537,7 +561,7 @@ class Slice:
         self.name = get_sn()
 
     def get(self):
-        value = self.a.get() 
+        value = self.a.get()
         if value is None:
             return None
         return truncate(value >> self.lsb, self.bits)
@@ -549,8 +573,9 @@ class Slice:
         self.a.walk(netlist)
 
     def generate(self):
-        return "  assign %s = %s[%u:%u];\n"%(
+        return "  assign %s = %s[%u:%u];\n" % (
             self.name, self.a.name, self.msb, self.lsb)
+
 
 class Resize:
     def __init__(self, a, bits, signed=False):
@@ -578,9 +603,10 @@ class Resize:
 
     def generate(self):
         if self.signed:
-            return "  assign %s = $signed(%s);\n"%(self.name, self.a.name)
+            return "  assign %s = $signed(%s);\n" % (self.name, self.a.name)
         else:
-            return "  assign %s = %s;\n"%(self.name, self.a.name)
+            return "  assign %s = %s;\n" % (self.name, self.a.name)
+
 
 class Label:
     def __init__(self, a, label):
@@ -596,8 +622,8 @@ class Label:
         return """
         wire [%s:0] %s;
         assign %s = %s;
-        assign %s = %s;"""%(
-        self.bits-1, self.label, self.name, self.label, self.label, self.a.name)
+        assign %s = %s;""" % (self.bits - 1, self.label, self.name, self.label,
+                              self.label, self.a.name)
 
     def walk(self, netlist):
         if id(self) in [id(i) for i in netlist.expressions]:
@@ -605,12 +631,13 @@ class Label:
         netlist.expressions.append(self)
         self.a.walk(netlist)
 
+
 class Unary:
     def __init__(self, a, operation):
         self.a = a
         func_lookup = {
-            "-":lambda a : -a,
-            "~":lambda a : ~a,
+            "-": lambda a: -a,
+            "~": lambda a: ~a,
         }
 
         vstring_lookup = {
@@ -629,13 +656,14 @@ class Unary:
         return truncate(self.func(value), self.bits)
 
     def generate(self):
-        return self.vstring%(self.name, self.a.name)
+        return self.vstring % (self.name, self.a.name)
 
     def walk(self, netlist):
         if id(self) in [id(i) for i in netlist.expressions]:
             return
         netlist.expressions.append(self)
         self.a.walk(netlist)
+
 
 class Concatenate:
     def __init__(self, a, b):
@@ -651,10 +679,11 @@ class Concatenate:
         b = self.b.get()
         if b is None:
             return None
-        return truncate((a<<self.b.bits) | b, self.bits)
+        return truncate((a << self.b.bits) | b, self.bits)
 
     def generate(self):
-        return "  assign %s = {%s, %s};"%(self.name, self.a.name, self.b.name)
+        return "  assign %s = {%s, %s};" % (self.name, self.a.name,
+                                            self.b.name)
 
     def walk(self, netlist):
         if id(self) in [id(i) for i in netlist.expressions]:
@@ -663,13 +692,14 @@ class Concatenate:
         self.a.walk(netlist)
         self.b.walk(netlist)
 
+
 def sign(x, bits):
-    if x == None:
+    if x is None:
         return None
     if int(bits) == 0:
         return 0
-    negative = x & (1<<(bits-1))
-    mask = ~((1 << bits)-1)
+    negative = x & (1 << (bits - 1))
+    mask = ~((1 << bits) - 1)
     if negative:
         return mask | x
     return x
@@ -680,47 +710,47 @@ class Binary:
         self.a = a
         self.b = b
         func_lookup = {
-            "*":lambda a, b : a * b,
-            "+":lambda a, b : a + b,
-            "-":lambda a, b : a - b,
-            "|":lambda a, b : a | b,
-            "&":lambda a, b : a & b,
-            "^":lambda a, b : a ^ b,
-            ">>":lambda a, b : a >> b,
-            "s>>":lambda x, y : sign(x, a.bits) >> y,
-            "<<":lambda a, b : a << b,
-            "==":lambda a, b : a == b,
-            "!=":lambda a, b : a != b,
-            "<":lambda a, b : a < b,
-            ">":lambda a, b : a > b,
-            "<=":lambda a, b : a <= b,
-            ">=":lambda a, b : a >= b,
-            "s<":lambda x, y : sign(x, a.bits) < sign(y, b.bits),
-            "s>":lambda x, y : sign(x, a.bits) > sign(y, b.bits),
-            "s<=":lambda x, y : sign(x, a.bits) <= sign(y, b.bits),
-            "s>=":lambda x, y : sign(x, a.bits) >= sign(y, b.bits),
+            "*": lambda a, b: a * b,
+            "+": lambda a, b: a + b,
+            "-": lambda a, b: a - b,
+            "|": lambda a, b: a | b,
+            "&": lambda a, b: a & b,
+            "^": lambda a, b: a ^ b,
+            ">>": lambda a, b: a >> b,
+            "s>>": lambda x, y: sign(x, a.bits) >> y,
+            "<<": lambda a, b: a << b,
+            "==": lambda a, b: a == b,
+            "!=": lambda a, b: a != b,
+            "<": lambda a, b: a < b,
+            ">": lambda a, b: a > b,
+            "<=": lambda a, b: a <= b,
+            ">=": lambda a, b: a >= b,
+            "s<": lambda x, y: sign(x, a.bits) < sign(y, b.bits),
+            "s>": lambda x, y: sign(x, a.bits) > sign(y, b.bits),
+            "s<=": lambda x, y: sign(x, a.bits) <= sign(y, b.bits),
+            "s>=": lambda x, y: sign(x, a.bits) >= sign(y, b.bits),
         }
 
         bits_lookup = {
-            "*":lambda a, b : max([a, b]),
-            "+":lambda a, b : max([a, b]),
-            "-":lambda a, b : max([a, b]),
-            "|":lambda a, b : max([a, b]),
-            "&":lambda a, b : max([a, b]),
-            "^":lambda a, b : max([a, b]),
-            "<<":lambda a, b : max([a, b]),
-            ">>":lambda a, b : max([a, b]),
-            "s>>":lambda a, b : max([a, b]),
-            "==":lambda a, b : 1,
-            "!=":lambda a, b : 1,
-            "<":lambda a, b : 1,
-            ">":lambda a, b : 1,
-            "<=":lambda a, b : 1,
-            ">=":lambda a, b : 1,
-            "s<":lambda a, b : 1,
-            "s>":lambda a, b : 1,
-            "s<=":lambda a, b : 1,
-            "s>=":lambda a, b : 1,
+            "*": lambda a, b: max([a, b]),
+            "+": lambda a, b: max([a, b]),
+            "-": lambda a, b: max([a, b]),
+            "|": lambda a, b: max([a, b]),
+            "&": lambda a, b: max([a, b]),
+            "^": lambda a, b: max([a, b]),
+            "<<": lambda a, b: max([a, b]),
+            ">>": lambda a, b: max([a, b]),
+            "s>>": lambda a, b: max([a, b]),
+            "==": lambda a, b: 1,
+            "!=": lambda a, b: 1,
+            "<": lambda a, b: 1,
+            ">": lambda a, b: 1,
+            "<=": lambda a, b: 1,
+            ">=": lambda a, b: 1,
+            "s<": lambda a, b: 1,
+            "s>": lambda a, b: 1,
+            "s<=": lambda a, b: 1,
+            "s>=": lambda a, b: 1,
         }
         vstring_lookup = {
             "*": "  assign %s = %s * %s;\n",
@@ -729,19 +759,19 @@ class Binary:
             "|": "  assign %s = %s | %s;\n",
             "&": "  assign %s = %s & %s;\n",
             "^": "  assign %s = %s ^ %s;\n",
-            "<<":"  assign %s = %s << %s;\n",
-            "s>>":"  assign %s = $signed(%s) >>> $signed(%s);\n",
-            ">>":"  assign %s = %s >> %s;\n",
-            "==":"  assign %s = %s == %s;\n",
-            "!=":"  assign %s = %s != %s;\n",
+            "<<": "  assign %s = %s << %s;\n",
+            "s>>": "  assign %s = $signed(%s) >>> $signed(%s);\n",
+            ">>": "  assign %s = %s >> %s;\n",
+            "==": "  assign %s = %s == %s;\n",
+            "!=": "  assign %s = %s != %s;\n",
             "<": "  assign %s = %s < %s;\n",
             ">": "  assign %s = %s > %s;\n",
-            "<=":"  assign %s = %s <= %s;\n",
-            ">=":"  assign %s = %s >= %s;\n",
+            "<=": "  assign %s = %s <= %s;\n",
+            ">=": "  assign %s = %s >= %s;\n",
             "s<": "  assign %s = $signed(%s) < $signed(%s);\n",
             "s>": "  assign %s = $signed(%s) > $signed(%s);\n",
-            "s<=":"  assign %s = $signed(%s) <= $signed(%s);\n",
-            "s>=":"  assign %s = $signed(%s) >= $signed(%s);\n",
+            "s<=": "  assign %s = $signed(%s) <= $signed(%s);\n",
+            "s>=": "  assign %s = $signed(%s) >= $signed(%s);\n",
         }
         self.bits = bits_lookup[operation](self.a.bits, self.b.bits)
         self.func = func_lookup[operation]
@@ -759,7 +789,7 @@ class Binary:
         return truncate(self.func(a, b), self.bits)
 
     def generate(self):
-        return self.vstring%(self.name, self.a.name, self.b.name)
+        return self.vstring % (self.name, self.a.name, self.b.name)
 
     def walk(self, netlist):
         if id(self) in [id(i) for i in netlist.expressions]:
@@ -767,6 +797,7 @@ class Binary:
         netlist.expressions.append(self)
         self.a.walk(netlist)
         self.b.walk(netlist)
+
 
 class Output:
     def __init__(self, name, expression):
@@ -781,7 +812,8 @@ class Output:
         self.expression.walk(netlist)
 
     def generate(self):
-        return "  assign %s = %s;\n"%(self.name, self.expression.name)
+        return "  assign %s = %s;\n" % (self.name, self.expression.name)
+
 
 class Clock:
     def __init__(self, name="clk"):
@@ -798,6 +830,7 @@ class Clock:
             i.evaluate()
         for i in self.registers:
             i.update()
+
 
 class Netlist:
     def __init__(self, name, clocks, inputs, outputs):
@@ -817,13 +850,16 @@ class Netlist:
 module %s(%s);
 %s%s%s
 %s
-endmodule"""%(
-    self.name,
-    ", ".join([i.name for i in self.clocks+self.inputs+self.outputs]),
-    "".join(["  input [%s:0] %s;\n"%(i.bits-1, i.name) for i in self.inputs+self.clocks]),
-    "".join(["  output [%s:0] %s;\n"%(i.bits-1, i.name) for i in self.outputs]),
-    "".join(["  wire [%s:0] %s;\n"%(i.bits-1, i.name) for i in self.expressions 
-        if id(i) not in [id(x) for x in self.inputs]]),
-    "".join([i.generate() for i in self.expressions + self.outputs]),
-)
-
+endmodule""" % (
+            self.name,
+            ", ".join(
+                [i.name for i in self.clocks + self.inputs + self.outputs]),
+            "".join(["  input [%s:0] %s;\n" % (i.bits - 1, i.name)
+                     for i in self.inputs + self.clocks]),
+            "".join(["  output [%s:0] %s;\n" % (i.bits - 1, i.name)
+                     for i in self.outputs]),
+            "".join(["  wire [%s:0] %s;\n" % (i.bits - 1, i.name)
+                     for i in self.expressions
+                     if id(i) not in [id(x) for x in self.inputs]]),
+            "".join([i.generate() for i in self.expressions + self.outputs]),
+        )

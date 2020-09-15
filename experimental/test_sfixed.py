@@ -1,4 +1,5 @@
 from baremetal import *
+
 from sfixed import *
 
 c = SFixed(8, 4).constant(2.0) + SFixed(2, 4).constant(0.0625)

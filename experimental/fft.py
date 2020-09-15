@@ -1,7 +1,10 @@
-from baremetal import *
-from sfixed import SFixed
-from complex import Complex
 from cmath import exp, pi
+
+from baremetal import *
+
+from complex import Complex
+from sfixed import SFixed
+
 
 def delay(clk, x, n, init=None):
     for i in range(n):
@@ -93,4 +96,3 @@ for i in range(10):
     valid.set(0)
     print(("%10s %10s %10s"%(s0.get(), s1.get(), valid_out.get())))
     clk.tick()
-

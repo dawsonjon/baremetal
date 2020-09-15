@@ -1,6 +1,8 @@
-from baremetal import *
-from sfixed import SFixed
 from math import atan, pi, sqrt
+
+from baremetal import *
+
+from sfixed import SFixed
 
 #1.0 = +180
 #-1.0 = -180

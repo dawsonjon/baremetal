@@ -1,5 +1,6 @@
-from baremetal import *
 import baremetal.signed as signed
+from baremetal import *
+
 
 class SFixed:
 
