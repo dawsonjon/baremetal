@@ -452,8 +452,6 @@ class RAM:
         for port in self.ports:
             ram_string += port.generate_port()
 
-        print(ram_string)
-
         return ram_string
 
 
