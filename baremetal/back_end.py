@@ -231,6 +231,9 @@ class RAMPort:
         self.wdata.walk(netlist)
 
     def generate(self):
+        return ""
+
+    def generate_port(self):
         if self.asynchronous:
             return """
 
@@ -388,7 +391,7 @@ class RAM:
 """ % init_string
 
         if self.asynchronous:
-            return """
+            ram_string = """
   //Create RAM
   reg [%s:0] %s_ram [%s:0];
 %s
@@ -413,7 +416,7 @@ class RAM:
                 self.raddr.name,
             )
         else:
-            return """
+            ram_string = """
   //Create RAM (Synchronous)
   reg [%s:0] %s_ram [%s:0];
   %s
@@ -446,6 +449,12 @@ class RAM:
                 self.name,
                 self.name
             )
+        for port in self.ports:
+            ram_string += port.generate_port()
+
+        print(ram_string)
+
+        return ram_string
 
 
 class ROM:
