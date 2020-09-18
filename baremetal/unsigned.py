@@ -8,7 +8,7 @@ def number_of_bits_needed(x):
     x = int(x)
     n = 1
     while 1:
-        max_value = (2**n) - 1
+        max_value = (2 ** n) - 1
         min_value = 0
         if min_value <= x <= max_value:
             return n
@@ -24,7 +24,6 @@ def const(value):
 
 
 class Unsigned:
-
     def __init__(self, bits):
         self.bits = bits
 
@@ -68,8 +67,7 @@ def binary(a, b, operator):
     b = const(b)
     binary = back_end.Binary(a.vector, b.vector, operator)
     subtype = Unsigned(binary.bits)
-    return Expression(
-        subtype, binary, "(" + repr(a) + operator + repr(b) + ")")
+    return Expression(subtype, binary, "(" + repr(a) + operator + repr(b) + ")")
 
 
 def unary(a, operator):
@@ -88,8 +86,9 @@ class Expression:
         a = self
         vector = back_end.Label(self.vector, label_string)
         subtype = Unsigned(vector.bits)
-        return Expression(subtype, vector, "%s.label(%s)" % (
-            repr(a), str(label_string)))
+        return Expression(
+            subtype, vector, "%s.label(%s)" % (repr(a), str(label_string))
+        )
 
     def cat(self, other):
         a = self
@@ -101,8 +100,7 @@ class Expression:
     def resize(self, bits):
         binary = back_end.Resize(self.vector, bits)
         subtype = Unsigned(binary.bits)
-        return Expression(subtype, binary, "%s.resize(%s)" % (
-            repr(self), str(bits)))
+        return Expression(subtype, binary, "%s.resize(%s)" % (repr(self), str(bits)))
 
     def __add__(self, other):
         return binary(self, other, "+")
@@ -164,8 +162,9 @@ class Expression:
         except TypeError:
             vector = back_end.Slice(self.vector, other.start, other.stop)
             subtype = Unsigned(vector.bits)
-            return Expression(subtype, vector, "%s[%s:%s]" % (
-                self, other.start, other.stop))
+            return Expression(
+                subtype, vector, "%s[%s:%s]" % (self, other.start, other.stop)
+            )
 
     def get(self):
         return self.subtype.from_vector(self.vector.get())
@@ -218,8 +217,7 @@ class ROM(Expression):
         select = const(select).vector
         args = [int(i) for i in args]
         default = int(kwargs.get("default", 0))
-        self.vector = back_end.ROM(
-            subtype.bits, select, *args, default=default)
+        self.vector = back_end.ROM(subtype.bits, select, *args, default=default)
         self.subtype = subtype
         self.string = "ROM()"
 
@@ -236,10 +234,14 @@ class RAMPort:
         self.read_enable = Boolean().wire()
 
         self.ram = back_end.RAMPort(
-            ram.ram, clk,
-            self.write_address.vector, self.write_data.vector,
-            self.write_enable.vector, self.read_address.vector,
-            self.read_enable.vector)
+            ram.ram,
+            clk,
+            self.write_address.vector,
+            self.write_data.vector,
+            self.write_enable.vector,
+            self.read_address.vector,
+            self.read_enable.vector,
+        )
 
     def write(self, wraddr, wrdata, wren):
         self.write_address.drive(wraddr)
@@ -253,8 +255,7 @@ class RAMPort:
 
 
 class RAM:
-    def __init__(self, subtype, depth, clk, asynchronous=True,
-                 initialise=None):
+    def __init__(self, subtype, depth, clk, asynchronous=True, initialise=None):
         self.subtype = subtype
         self.write_address = Unsigned(int(ceil(log(depth, 2)))).wire()
         self.read_address = Unsigned(int(ceil(log(depth, 2)))).wire()
@@ -263,11 +264,17 @@ class RAM:
         self.write_enable = Boolean().wire()
         self.read_enable = Boolean().wire()
         self.ram = back_end.RAM(
-            subtype.bits, depth, clk,
-            self.write_address.vector, self.write_data.vector,
-            self.write_enable.vector, self.read_address.vector,
-            self.read_enable.vector, asynchronous=asynchronous,
-            initialise=initialise)
+            subtype.bits,
+            depth,
+            clk,
+            self.write_address.vector,
+            self.write_data.vector,
+            self.write_enable.vector,
+            self.read_address.vector,
+            self.read_enable.vector,
+            asynchronous=asynchronous,
+            initialise=initialise,
+        )
 
     def add_port(self, clk):
         return RAMPort(self, clk)
@@ -290,7 +297,8 @@ class Register(Expression):
         init = init if init is None else int(init)
         en = const(en).vector
         self.vector = back_end.Register(
-            clock=clk, bits=subtype.bits, en=en, d=d, init=init)
+            clock=clk, bits=subtype.bits, en=en, d=d, init=init
+        )
 
     def d(self, expression):
         self.vector.d = expression.vector
