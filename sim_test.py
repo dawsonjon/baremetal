@@ -1,7 +1,7 @@
 from baremetal import *
 from baremetal.back_end import sign
 
-#check propogation of None.
+#check propagation of None.
 assert Signed(2).input("asdasd").get() is None
 assert Unsigned(2).input("asdasd").get() is None
 assert (Unsigned(2).input("asdasd") + 1).get() is None
