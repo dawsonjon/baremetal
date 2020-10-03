@@ -166,16 +166,13 @@ class Register:
             )
 
 
-class RAMPort:
-    def __init__(self, ram, clk, waddr, wdata, wen, raddr, ren=1, asynchronous=True):
+class DPRPort:
+    def __init__(self, ram, clk, addr, data, wen):
 
         clk.registers.append(self)
-        self.asynchronous = asynchronous
-        self.waddr = waddr
-        self.wdata = wdata
+        self.addr = addr
+        self.data = data
         self.wen = wen
-        self.raddr = raddr
-        self.ren = ren
         self.ram = ram
         self.value = None
         ram.ports.append(self)
@@ -189,111 +186,208 @@ class RAMPort:
 
     def evaluate(self):
         self.do_write = self.wen.get()
-        self.data_to_write = self.wdata.get()
-        self.address_to_write = self.waddr.get()
-        self.address_to_read = self.raddr.get()
-        self.do_read = self.ren.get()
+        self.data_to_write = self.data.get()
+        self.address = self.addr.get()
 
     def update(self):
 
+        #read before write behaviour
+        if self.address is None:
+            return None
+        if self.address >= self.depth:
+            warning("RAM address out of range")
+        self.value = truncate(self.ram.ram[self.address], self.bits)
+
         # write to the RAM if enabled
         if self.do_write:
-            if self.address_to_write is None:
+            if self.address is None:
                 self.ram.ram = [None for i in range(self.depth)]
             else:
-                self.ram.ram[self.address_to_write] = self.data_to_write
+                self.ram.ram[self.address] = self.data_to_write
 
         # if enable is None, we may have corrupted some or all RAM
         if self.do_write is None:
-            if self.address_to_write is None:
+            if self.address is None:
                 self.ram.ram = [None for i in range(self.depth)]
             else:
-                self.ram.ram[self.address_to_write] = None
+                self.ram.ram[self.address] = None
 
-        if not self.asynchronous:
-            if self.do_read is None:
-                return None
-            if self.do_read:
-                if self.address_to_read is None:
-                    return None
-                if self.address_to_read >= self.depth:
-                    warning("RAM address out of range")
-                self.value = truncate(self.ram.ram[self.address_to_read], self.bits)
 
     def get(self):
-
-        if self.asynchronous:
-            idx = self.raddr.get()
-            if idx is None:
-                return None
-            if idx >= self.depth:
-                warning("RAM address out of range")
-            return truncate(self.ram.ram[idx], self.bits)
-        else:
-            return self.value
+        return self.value
 
     def walk(self, netlist):
         if id(self) in [id(i) for i in netlist.expressions]:
             return
         netlist.expressions.append(self)
 
-        self.ren.walk(netlist)
-        self.raddr.walk(netlist)
         self.wen.walk(netlist)
-        self.waddr.walk(netlist)
-        self.wdata.walk(netlist)
+        self.addr.walk(netlist)
+        self.data.walk(netlist)
 
     def generate(self):
         return ""
 
     def generate_port(self):
-        if self.asynchronous:
-            return """
-
-  //Additional RAM port (asynchronous)
-  always@(posedge clk) begin
-    if (%s) begin
-        %s_ram[%s] <= %s;
-    end
-  end
-  assign %s = %s_ram[%s];
-""" % (
-                self.wen.name,
-                self.ram.name,
-                self.waddr.name,
-                self.wdata.name,
-                self.name,
-                self.ram.name,
-                self.raddr.name,
-            )
-        else:
-            return """
-  //Additional RAM port (synchronous)
-  always@(posedge clk) begin
+        return """
+  //Additional DPR portb (synchronous)
   reg [%s:0] %s_reg;
   always@(posedge clk) begin
     if (%s) begin
-        %s_reg <= %s_ram[%s];
-    end
-    if (%s) begin
         %s_ram[%s] <= %s;
     end
+    %s_reg <= %s_ram[%s];
   end
   assign %s = %s_reg;
 """ % (
                 self.bits - 1,
                 self.name,
-                self.ren.name,
-                self.name,
-                self.ram.name,
-                self.raddr.name,
                 self.wen.name,
                 self.ram.name,
-                self.waddr.name,
-                self.wdata.name,
+                self.addr.name,
+                self.data.name,
+                self.name,
+                self.ram.name,
+                self.addr.name,
                 self.name,
                 self.name,
             )
+
+class DPR:
+    def __init__(
+        self,
+        bits,
+        depth,
+        clk,
+        addr,
+        data,
+        wen,
+        initialise=None,
+    ):
+
+        clk.registers.append(self)
+        self.ports = []
+        self.addr = addr
+        self.data = data
+        self.wen = wen
+        self.ram = [None for i in range(depth)]
+        self.value = None
+
+        self.bits = int(bits)
+        self.depth = int(depth)
+        self.name = get_sn()
+        if initialise is not None:
+            self.initial_values = [truncate(int(i), self.depth) for i in initialise]
+        else:
+            self.initial_values = None
+
+    def initialise(self):
+        if self.initial_values is None:
+            self.ram = [None for i in range(self.depth)]
+        else:
+            self.ram = [0 for i in range(self.depth)]
+            for i, v in enumerate(self.initial_values):
+                self.ram[i] = v
+        self.value = None
+
+    def evaluate(self):
+        self.do_write = self.wen.get()
+        self.data_to_write = self.data.get()
+        self.address = self.addr.get()
+
+    def update(self):
+        #RAM has read before write behaviour
+        if self.address is None:
+            return None
+        if self.address >= self.depth:
+            warning("RAM address out of range")
+        self.value = truncate(self.ram[self.address], self.bits)
+
+        # write to the RAM if enabled
+        if self.do_write:
+            if self.address is None:
+                self.ram = [None for i in range(self.depth)]
+            else:
+                self.ram[self.address] = self.data_to_write
+
+        # if enable is None, we may have corrupted some or all RAM
+        if self.do_write is None:
+            if self.address is None:
+                self.ram = [None for i in range(self.depth)]
+            else:
+                self.ram[self.address] = None
+
+
+    def get(self):
+        return self.value
+
+    def walk(self, netlist):
+        if id(self) in [id(i) for i in netlist.expressions]:
+            return
+        netlist.expressions.append(self)
+        for port in self.ports:
+            port.walk(netlist)
+        self.wen.walk(netlist)
+        self.addr.walk(netlist)
+        self.data.walk(netlist)
+
+    def generate(self):
+
+        if self.initial_values is None:
+            init_string = ""
+        else:
+            init_string = "\n".join(
+                [
+                    "    %s_ram[%s] = %s;" % (self.name, i, n)
+                    for i, n in enumerate(self.initial_values[: self.depth])
+                ]
+            )
+            init_string = (
+                """
+
+  //Initialise DPR contents
+  initial
+  begin
+%s
+  end
+"""
+                % init_string
+            )
+
+        ram_string = """
+  //Create DPR (Synchronous)
+  reg [%s:0] %s_ram [%s:0];
+  %s
+  //Implement DPR porta (Synchronous)
+  reg [%s:0] %s_reg;
+  always@(posedge clk) begin
+    if (%s) begin
+        %s_ram[%s] <= %s;
+    end
+    %s_reg <= %s_ram[%s];
+  end
+  assign %s = %s_reg;
+""" % (
+                self.bits - 1,
+                self.name,
+                int(self.depth) - 1,
+                init_string,
+                self.bits - 1,
+                self.name,
+                self.wen.name,
+                self.name,
+                self.addr.name,
+                self.data.name,
+                self.name,
+                self.name,
+                self.addr.name,
+                self.name,
+                self.name,
+            )
+        for port in self.ports:
+            ram_string += port.generate_port()
+
+        return ram_string
 
 
 class RAM:
@@ -312,7 +406,6 @@ class RAM:
     ):
 
         clk.registers.append(self)
-        self.ports = []
         self.asynchronous = asynchronous
         self.waddr = waddr
         self.wdata = wdata
@@ -347,6 +440,7 @@ class RAM:
         self.do_read = self.ren.get()
 
     def update(self):
+        #RAM has write before read behaviour
 
         # write to the RAM if enabled
         if self.do_write:
@@ -388,8 +482,6 @@ class RAM:
         if id(self) in [id(i) for i in netlist.expressions]:
             return
         netlist.expressions.append(self)
-        for port in self.ports:
-            port.walk(netlist)
         self.ren.walk(netlist)
         self.raddr.walk(netlist)
         self.wen.walk(netlist)
@@ -462,7 +554,7 @@ class RAM:
 """ % (
                 self.bits - 1,
                 self.name,
-                int(ceil(log(self.depth, 2))) - 1,
+                int(self.depth) - 1,
                 init_string,
                 self.bits - 1,
                 self.name,
@@ -477,8 +569,6 @@ class RAM:
                 self.name,
                 self.name,
             )
-        for port in self.ports:
-            ram_string += port.generate_port()
 
         return ram_string
 

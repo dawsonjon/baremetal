@@ -28,7 +28,7 @@ class Unsigned:
         self.bits = bits
 
     def to_vector(self, value):
-        return int(round(float(value)))
+        return int(value)
 
     def from_vector(self, value):
         return value
@@ -58,6 +58,8 @@ class Unsigned:
     def ram(self, *args, **kwargs):
         return RAM(self, *args, **kwargs)
 
+    def dpr(self, *args, **kwargs):
+        return DPR(self, *args, **kwargs)
 
 def Boolean():
     return Unsigned(1)
@@ -222,36 +224,41 @@ class ROM(Expression):
         self.string = "ROM()"
 
 
-class RAMPort:
-    def __init__(self, ram, clk):
+def DPRPort(ram, clk, addr, data, wen):
 
-        self.subtype = ram.subtype
-        self.write_address = Unsigned(int(ceil(log(ram.ram.depth, 2)))).wire()
-        self.read_address = Unsigned(int(ceil(log(ram.ram.depth, 2)))).wire()
-        self.write_data = ram.subtype.wire()
-        self.read_data = ram.subtype.wire()
-        self.write_enable = Boolean().wire()
-        self.read_enable = Boolean().wire()
+    subtype = ram.subtype
+    ram = back_end.DPRPort(
+        ram.ram,
+        clk,
+        addr.vector,
+        data.vector,
+        wen.vector,
+    )
 
-        self.ram = back_end.RAMPort(
-            ram.ram,
-            clk,
-            self.write_address.vector,
-            self.write_data.vector,
-            self.write_enable.vector,
-            self.read_address.vector,
-            self.read_enable.vector,
+    return Expression(subtype, ram, "DPR.portb()")
+
+class DPR:
+    def __init__(self, subtype, depth, clk, initialise=None):
+        self.subtype = subtype
+        self.depth = depth
+        self.clk = clk
+        self.initialise = initialise
+
+    def porta(self, addr, data, wen):
+        self.ram = back_end.DPR(
+            self.subtype.bits,
+            self.depth,
+            self.clk,
+            addr.vector,
+            data.vector,
+            wen.vector,
+            self.initialise
         )
+        return Expression(self.subtype, self.ram, "DPR.porta()")
 
-    def write(self, wraddr, wrdata, wren):
-        self.write_address.drive(wraddr)
-        self.write_data.drive(wrdata)
-        self.write_enable.drive(wren)
 
-    def read(self, rdaddr, rden=1):
-        self.read_address.drive(rdaddr)
-        self.read_enable.drive(const(rden))
-        return Expression(self.subtype, self.ram, "ramport()")
+    def portb(self, addr, data, wen):
+        return DPRPort(self, self.clk, addr, data, wen)
 
 
 class RAM:
