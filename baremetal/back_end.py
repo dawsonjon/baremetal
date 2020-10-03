@@ -196,7 +196,10 @@ class DPRPort:
             return None
         if self.address >= self.depth:
             warning("RAM address out of range")
-        self.value = truncate(self.ram.ram[self.address], self.bits)
+        try:
+            self.value = truncate(self.ram.ram[self.address], self.bits)
+        except IndexError:
+            self.value = None
 
         # write to the RAM if enabled
         if self.do_write:
@@ -301,7 +304,10 @@ class DPR:
             return None
         if self.address >= self.depth:
             warning("RAM address out of range")
-        self.value = truncate(self.ram[self.address], self.bits)
+        try:
+            self.value = truncate(self.ram[self.address], self.bits)
+        except IndexError:
+            self.value = None
 
         # write to the RAM if enabled
         if self.do_write:
@@ -464,7 +470,10 @@ class RAM:
                     return None
                 if self.address_to_read >= self.depth:
                     warning("RAM address out of range")
-                self.value = truncate(self.ram[self.address_to_read], self.bits)
+                try:
+                    self.value = truncate(self.ram[self.address_to_read], self.bits)
+                except IndexError:
+                    self.value = None
 
     def get(self):
 
@@ -541,16 +550,16 @@ class RAM:
   reg [%s:0] %s_ram [%s:0];
   %s
   //Implement RAM port (Synchronous)
-  reg [%s:0] %s_reg;
+  reg [%s:0] %s_addr;
   always@(posedge clk) begin
     if (%s) begin
-        %s_reg <= %s_ram[%s];
+        %s_addr <= %s;
     end
     if (%s) begin
         %s_ram[%s] <= %s;
     end
   end
-  assign %s = %s_reg;
+  assign %s = %s_ram[%s_addr];
 """ % (
                 self.bits - 1,
                 self.name,
@@ -560,12 +569,12 @@ class RAM:
                 self.name,
                 self.ren.name,
                 self.name,
-                self.name,
                 self.raddr.name,
                 self.wen.name,
                 self.name,
                 self.waddr.name,
                 self.wdata.name,
+                self.name,
                 self.name,
                 self.name,
             )
